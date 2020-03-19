@@ -4,6 +4,7 @@ workspace:
   base: /go
   path: src/github.com/packethost/hegel
 
+
 pipeline:
   lint:
     group: ci
