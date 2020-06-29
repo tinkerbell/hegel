@@ -251,6 +251,7 @@ func main() {
 	http.HandleFunc("/_packet/healthcheck", healthCheckHandler)
 	http.HandleFunc("/_packet/version", versionHandler)
 	http.HandleFunc("/metadata", getMetadata)
+	http.HandleFunc("/userdata", getUserData)
 
 	logger.With("port", *metricsPort).Info("Starting http server")
 	go func() {

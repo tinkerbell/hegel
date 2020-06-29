@@ -51,6 +51,11 @@ type exportedHardwareTinkerbell struct {
 	Metadata interface{} `json:"metadata"`
 }
 
+// exportedinstancemetadata/userdata/components
+// - userdata is just a string from hardware (tink) metadata.instance.userdata
+// - metadata json matches api data structure
+// - components info from metadata.components
+
 type instance struct {
 	ID       string `json:"id"`
 	State    string `json:"state"`
@@ -191,6 +196,43 @@ func exportHardware(hw []byte) ([]byte, error) {
 	return json.Marshal(exported)
 }
 
+func exportUserData(hw []byte) ([]byte, error) {
+	var userdata string
+	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+	switch dataModelVersion {
+	case "1":
+
+		hwJSON := make(map[string]interface{})
+		err := json.Unmarshal(hw, &hwJSON)
+		if err != nil {
+			return nil, err
+		}
+		metadata := make(map[string]interface{})
+		err = json.Unmarshal([]byte(hwJSON["metadata"].(string)), &metadata)
+		if err != nil {
+			return nil, err
+		}
+
+		userdata = metadata["instance"].(map[string]interface{})["userdata"].(string)
+	default:
+		hwJSON := make(map[string]interface{})
+		err := json.Unmarshal(hw, &hwJSON)
+		if err != nil {
+			return nil, err
+		}
+
+		// check
+		userdata = hwJSON["userdata"].(string)
+	}
+
+	//err := json.Unmarshal([]byte(userdata), exported)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//return json.Marshal(exported)
+	return []byte(userdata), nil
+}
+
 // UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of exportedHardwareCacher
 func (eh *exportedHardwareCacher) UnmarshalJSON(b []byte) error {
 	type ehj exportedHardwareCacher
@@ -241,7 +283,11 @@ func (s *server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetRespo
 	s.log.With("client", p.Addr, "op", "get").Info()
 	userIP := p.Addr.(*net.TCPAddr).IP.String()
 
-	ehw, err := getByIP(ctx, s, userIP)
+	hw, err := getByIP(ctx, s, userIP)
+	if err != nil {
+		return nil, err
+	}
+	ehw, err := exportHardware(hw)
 	if err != nil {
 		return nil, err
 	}
@@ -448,9 +494,11 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 		hw = []byte(resp.(*cacher.Hardware).JSON)
 	}
 
-	ehw, err := exportHardware(hw)
-	if err != nil {
-		return nil, err
-	}
-	return ehw, nil
+	return hw, nil
+
+	//ehw, err := exportHardware(hw)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//return ehw, nil
 }

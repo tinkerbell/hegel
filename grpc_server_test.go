@@ -20,14 +20,20 @@ func TestGetByIPCacher(t *testing.T) {
 			hardwareClient: hardwareGetterMock{test.json},
 		}
 		ehw, err := getByIP(context.Background(), hegelTestServer, test.remote)
+		//if err != nil {
+		//	if err.Error() != test.error {
+		//		t.Fatalf("unexpected error in getByIP, want: %v, got: %v\n", test.error, err.Error())
+		//	}
+		//	continue
+		//}
+		hw := exportedHardwareCacher{}
+		err = json.Unmarshal(ehw, &hw)
 		if err != nil {
 			if err.Error() != test.error {
-				t.Fatalf("unexpected error in getByIP, want: %v, got: %v\n", test.error, err.Error())
+				t.Fatalf("unexpected error while unmarshalling, want: %v, got: %v\n", test.error, err.Error())
 			}
 			continue
 		}
-		hw := exportedHardwareCacher{}
-		err = json.Unmarshal(ehw, &hw)
 		if err != nil {
 			t.Fatal("Error in unmarshalling hardware", err)
 		}
