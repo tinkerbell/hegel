@@ -42,11 +42,34 @@ func TestGetMetadataCacher(t *testing.T) {
 			t.Errorf("handler returned unexpected id: got %v want %v",
 				hw.ID, test.id)
 		}
+		if hw.Arch != test.arch {
+			t.Errorf("handler returned unexpected arch: got %v want %v",
+				hw.Arch, test.arch)
+		}
+		if hw.State != test.state {
+			t.Errorf("handler returned unexpected state: got %v want %v",
+				hw.State, test.state)
+		}
+		if hw.EFIBoot != test.efiBoot {
+			t.Errorf("handler returned unexpected efi boot: got %v want %v",
+				hw.EFIBoot, test.efiBoot)
+		}
 		if hw.PlanSlug != test.planSlug {
 			t.Errorf("handler returned unexpected plan slug: got %v want %v",
 				hw.PlanSlug, test.planSlug)
 		}
-		// TODO (kdeng3849) test more fields
+		if hw.Facility != test.facility {
+			t.Errorf("handler returned unexpected facility: got %v want %v",
+				hw.Facility, test.facility)
+		}
+		if hw.Hostname != test.hostname {
+			t.Errorf("handler returned unexpected hostname: got %v want %v",
+				hw.Hostname, test.hostname)
+		}
+		if hw.BondingMode != test.bondingMode {
+			t.Errorf("handler returned unexpected bonding mode: got %v want %v",
+				hw.BondingMode, test.bondingMode)
+		}
 	}
 }
 
@@ -166,13 +189,24 @@ func TestGetUserDataTinkerbell(t *testing.T) {
 var cacherMetadataTests = map[string]struct {
 	id       string
 	remote   string
+	arch string
+	state string
+	efiBoot bool
 	planSlug string
+	facility string
+	hostname string
+	bondingMode int
 	json     string
 }{
 	"cacher": {
 		id:       "8978e7d4-1a55-4845-8a66-a5259236b104",
 		remote:   "192.168.1.5",
+		arch: "x86_64",
+		state: "provisioning",
+		efiBoot: false,
 		planSlug: "t1.small.x86",
+		facility: "onprem",
+
 		json:     cacherDataModel,
 	},
 }

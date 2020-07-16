@@ -98,7 +98,7 @@ const (
 			}
 		  ]
 		},
-		"crypted_root_password": "$6$qViImWbWFfH/a4pq$s1bpFFXMpQj1eQbHWsruLy6/",
+		"crypted_root_password": "redacted",
 		"operating_system_version": {
 		  "distro": "ubuntu",
 		  "version": "16.04",

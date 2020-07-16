@@ -20,12 +20,6 @@ func TestGetByIPCacher(t *testing.T) {
 			hardwareClient: hardwareGetterMock{test.json},
 		}
 		ehw, err := getByIP(context.Background(), hegelTestServer, test.remote)
-		//if err != nil {
-		//	if err.Error() != test.error {
-		//		t.Fatalf("unexpected error in getByIP, want: %v, got: %v\n", test.error, err.Error())
-		//	}
-		//	continue
-		//}
 		hw := exportedHardwareCacher{}
 		err = json.Unmarshal(ehw, &hw)
 		if err != nil {
@@ -168,6 +162,7 @@ var cacherGrpcTests = map[string]struct {
 }{
 	"cacher": {
 		remote:           "192.168.1.5",
+
 		state:            "provisioning",
 		facility:         "onprem",
 		mac:              "98:03:9b:48:de:bc",
