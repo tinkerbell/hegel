@@ -34,9 +34,6 @@ func TestGetByIPCacher(t *testing.T) {
 			}
 			continue
 		}
-		if err != nil {
-			t.Fatal("Error in unmarshalling hardware", err)
-		}
 
 		if hw.State != test.state {
 			t.Fatalf("unexpected state, want: %v, got: %v\n", test.state, hw.State)

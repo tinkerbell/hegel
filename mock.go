@@ -488,6 +488,90 @@ const (
 	  }
 	}
 `
+	cacherUserData = `
+	{
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "arch": "x86_64",
+	  "name": "node-name",
+	  "state": "provisioning",
+	  "allow_pxe": true,
+	  "allow_workflow": true,
+	  "plan_slug": "t1.small.x86",
+	  "facility_code": "onprem",
+      "efi_boot": false,
+	  "instance": {
+        "userdata": "#!/bin/bash\n\necho \"Hello world!\"",
+		"operating_system_version": {
+		  "distro": "ubuntu",
+		  "version": "16.04",
+		  "os_slug": "ubuntu_16_04"
+		}
+	  },
+	  "ip_addresses": [
+		{
+		  "cidr": 29,
+		  "public": false,
+		  "address": "192.168.1.5",
+		  "enabled": true,
+		  "gateway": "192.168.1.1",
+		  "netmask": "255.255.255.248",
+		  "network": "192.168.1.0",
+		  "address_family": 4
+		}
+	  ],
+	  "network_ports": [
+		{
+		  "data": {
+			"mac": "98:03:9b:48:de:bc"
+		  },
+		  "name": "eth0",
+		  "type": "data"
+		}
+	  ]
+	}
+`
+	cacherNoUserData = `
+	{
+	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",
+	  "arch": "x86_64",
+	  "name": "node-name",
+	  "state": "provisioning",
+	  "allow_pxe": true,
+	  "allow_workflow": true,
+	  "plan_slug": "t1.small.x86",
+	  "facility_code": "onprem",
+      "efi_boot": false,
+	  "instance": {
+		"operating_system_version": {
+		  "distro": "ubuntu",
+		  "version": "16.04",
+		  "os_slug": "ubuntu_16_04"
+		}
+	  },
+	  "ip_addresses": [
+		{
+		  "cidr": 29,
+		  "public": false,
+		  "address": "192.168.1.5",
+		  "enabled": true,
+		  "gateway": "192.168.1.1",
+		  "netmask": "255.255.255.248",
+		  "network": "192.168.1.0",
+		  "address_family": 4
+		}
+	  ],
+	  "network_ports": [
+		{
+		  "data": {
+			"mac": "98:03:9b:48:de:bc"
+		  },
+		  "name": "eth0",
+		  "type": "data"
+		}
+	  ]
+	}
+`
+
 	tinkerbellDataModel = `
 	{
 	   "network":{
@@ -555,4 +639,55 @@ const (
 	   "id":"363115b0-f03d-4ce5-9a15-5514193d131a"
 	}
 `
+	tinkerbellUserData = `
+{
+   "id":"0eba0bf8-3772-4b4a-ab9f-6ebe93b90a94",
+   "network":{
+      "interfaces":[
+         {
+            "dhcp":{
+               "ip":{
+                  "address":"192.168.1.5",
+                  "gateway":"192.168.1.1",
+                  "netmask":"255.255.255.248"
+               },
+               "mac":"00:00:00:00:00:00",
+               "arch":"x86_64"
+            },
+            "netboot":{
+               "allow_pxe":true,
+               "allow_workflow":true
+            }
+         }
+      ]
+   },
+   "metadata":"{\"facility\":{\"facility_code\":\"ewr1\",\"plan_slug\":\"c2.medium.x86\",\"plan_version_slug\":\"\"},\"instance\":{\"userdata\":\"#!/bin/bash\\necho \\\"Hello world!\\\"\"},\"state\":\"\"}"
+}
+`
+	tinkerbellNoUserData = `
+{
+   "id":"0eba0bf8-3772-4b4a-ab9f-6ebe93b90a94",
+   "network":{
+      "interfaces":[
+         {
+            "dhcp":{
+               "ip":{
+                  "address":"192.168.1.5",
+                  "gateway":"192.168.1.1",
+                  "netmask":"255.255.255.248"
+               },
+               "mac":"00:00:00:00:00:00",
+               "arch":"x86_64"
+            },
+            "netboot":{
+               "allow_pxe":true,
+               "allow_workflow":true
+            }
+         }
+      ]
+   },
+   "metadata":"{\"facility\":{\"facility_code\":\"ewr1\",\"plan_slug\":\"c2.medium.x86\",\"plan_version_slug\":\"\"},\"instance\":{},\"state\":\"\"}"
+}
+`
+
 )

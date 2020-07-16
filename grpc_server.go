@@ -207,13 +207,18 @@ func exportUserData(hw []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		metadata := make(map[string]interface{})
-		err = json.Unmarshal([]byte(hwJSON["metadata"].(string)), &metadata)
-		if err != nil {
-			return nil, err
+		if md, ok := hwJSON["metadata"].(string); ok {
+			err = json.Unmarshal([]byte(md), &metadata)
+			if err != nil {
+				return nil, err
+			}
 		}
 
-		userdata = metadata["instance"].(map[string]interface{})["userdata"].(string)
+		if instance, ok := metadata["instance"].(map[string]interface{}); ok {
+			userdata, _ = instance["userdata"].(string)
+		}
 	default:
 		hwJSON := make(map[string]interface{})
 		err := json.Unmarshal(hw, &hwJSON)
@@ -221,15 +226,11 @@ func exportUserData(hw []byte) ([]byte, error) {
 			return nil, err
 		}
 
-		// check
-		userdata = hwJSON["userdata"].(string)
+		if instance, ok := hwJSON["instance"].(map[string]interface{}); ok {
+			userdata, _ = instance["userdata"].(string)
+		}
 	}
 
-	//err := json.Unmarshal([]byte(userdata), exported)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//return json.Marshal(exported)
 	return []byte(userdata), nil
 }
 

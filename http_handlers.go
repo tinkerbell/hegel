@@ -58,7 +58,7 @@ func getMetadata(w http.ResponseWriter, r *http.Request) {
 		userIP := getIPFromRequest(r)
 		if userIP != "" {
 			metrics.MetadataRequests.Inc()
-			logger.With("userIP", userIP).Info("Actual IP is : ")
+			logger.With("userIP", userIP).Info("Actual IP is: ")
 			hw, err := getByIP(context.Background(), hegelServer, userIP)
 			if err != nil {
 				metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
@@ -86,7 +86,7 @@ func getUserData(w http.ResponseWriter, r *http.Request) {
 		userIP := getIPFromRequest(r)
 		if userIP != "" {
 			metrics.MetadataRequests.Inc()
-			logger.With("userIP", userIP).Info("Actual IP is : ")
+			logger.With("userIP", userIP).Info("Actual IP is: ")
 			hw, err := getByIP(context.Background(), hegelServer, userIP)
 			if err != nil {
 				metrics.Errors.WithLabelValues("userdata", "lookup").Inc()

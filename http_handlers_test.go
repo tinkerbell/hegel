@@ -11,7 +11,7 @@ import (
 )
 
 func TestGetMetadataCacher(t *testing.T) {
-	for name, test := range cacherTests {
+	for name, test := range cacherMetadataTests {
 		t.Log(name)
 		hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
@@ -46,13 +46,14 @@ func TestGetMetadataCacher(t *testing.T) {
 			t.Errorf("handler returned unexpected plan slug: got %v want %v",
 				hw.PlanSlug, test.planSlug)
 		}
+		// TODO (kdeng3849) test more fields
 	}
 }
 
 func TestGetMetadataTinkerbell(t *testing.T) {
 	os.Setenv("DATA_MODEL_VERSION", "1")
 
-	for name, test := range tinkerbellTests {
+	for name, test := range tinkerbellMetadataTests {
 		t.Log(name)
 		hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
@@ -103,7 +104,66 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 	}
 }
 
-var cacherTests = map[string]struct {
+func TestGetUserDataCacher(t *testing.T) {
+	for name, test := range cacherUserDataTests {
+		t.Log(name)
+		hegelServer.hardwareClient = hardwareGetterMock{test.json}
+
+		os.Setenv("DATA_MODEL_VERSION", "")
+
+		req, err := http.NewRequest("GET", "/userdata", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.RemoteAddr = test.remote
+		resp := httptest.NewRecorder()
+		handler := http.HandlerFunc(getUserData)
+
+		handler.ServeHTTP(resp, req)
+
+		if status := resp.Code; status != http.StatusOK {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+		}
+
+		if resp.Body.String() != test.userdata {
+			t.Errorf("handler returned unexpected userdata: got %v want %v",
+				resp.Body.String(), test.userdata)
+		}
+
+	}
+}
+
+func TestGetUserDataTinkerbell(t *testing.T) {
+	os.Setenv("DATA_MODEL_VERSION", "1")
+
+	for name, test := range tinkerbellUserDataTests {
+		t.Log(name)
+		hegelServer.hardwareClient = hardwareGetterMock{test.json}
+
+		req, err := http.NewRequest("GET", "/userdata", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.RemoteAddr = test.remote
+		resp := httptest.NewRecorder()
+		handler := http.HandlerFunc(getUserData)
+
+		handler.ServeHTTP(resp, req)
+
+		if status := resp.Code; status != http.StatusOK {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+		}
+
+		if resp.Body.String() != test.userdata {
+			t.Errorf("handler returned unexpected userdata: got %v want %v",
+				resp.Body.String(), test.userdata)
+		}
+	}
+}
+
+var cacherMetadataTests = map[string]struct {
 	id       string
 	remote   string
 	planSlug string
@@ -117,7 +177,7 @@ var cacherTests = map[string]struct {
 	},
 }
 
-var tinkerbellTests = map[string]struct {
+var tinkerbellMetadataTests = map[string]struct {
 	id          string
 	remote      string
 	bondingMode int64
@@ -133,5 +193,43 @@ var tinkerbellTests = map[string]struct {
 		id:     "363115b0-f03d-4ce5-9a15-5514193d131a",
 		remote: "192.168.1.5",
 		json:   tinkerbellNoMetadata,
+	},
+}
+
+var cacherUserDataTests = map[string]struct {
+	remote string
+	userdata string
+	json string
+}{
+	"cacher userdata": {
+		remote: "192.168.1.5",
+		userdata: `#!/bin/bash
+
+echo "Hello world!"`,
+		json: cacherUserData,
+	},
+	"cacher no userdata": {
+		remote: "192.168.1.5",
+		json: cacherNoUserData,
+	},
+}
+
+var tinkerbellUserDataTests = map[string]struct {
+	remote string
+	userdata string
+	json string
+}{
+	"tinkerbell userdata": {
+		remote: "192.168.1.5",
+		userdata: `#!/bin/bash
+echo "Hello world!"`,
+		json: tinkerbellUserData,
+	},
+	"tinkerbell no userdata": {
+		remote: "192.168.1.5",
+		json: tinkerbellNoUserData,
+	},"tinkerbell no metadata": {
+		remote: "192.168.1.5",
+		json: tinkerbellNoMetadata,
 	},
 }
