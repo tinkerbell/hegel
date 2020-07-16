@@ -197,9 +197,9 @@ var tinkerbellMetadataTests = map[string]struct {
 }
 
 var cacherUserDataTests = map[string]struct {
-	remote string
+	remote   string
 	userdata string
-	json string
+	json     string
 }{
 	"cacher userdata": {
 		remote: "192.168.1.5",
@@ -210,14 +210,14 @@ echo "Hello world!"`,
 	},
 	"cacher no userdata": {
 		remote: "192.168.1.5",
-		json: cacherNoUserData,
+		json:   cacherNoUserData,
 	},
 }
 
 var tinkerbellUserDataTests = map[string]struct {
-	remote string
+	remote   string
 	userdata string
-	json string
+	json     string
 }{
 	"tinkerbell userdata": {
 		remote: "192.168.1.5",
@@ -227,9 +227,9 @@ echo "Hello world!"`,
 	},
 	"tinkerbell no userdata": {
 		remote: "192.168.1.5",
-		json: tinkerbellNoUserData,
-	},"tinkerbell no metadata": {
+		json:   tinkerbellNoUserData,
+	}, "tinkerbell no metadata": {
 		remote: "192.168.1.5",
-		json: tinkerbellNoMetadata,
+		json:   tinkerbellNoMetadata,
 	},
 }

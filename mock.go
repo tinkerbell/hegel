@@ -689,5 +689,4 @@ const (
    "metadata":"{\"facility\":{\"facility_code\":\"ewr1\",\"plan_slug\":\"c2.medium.x86\",\"plan_version_slug\":\"\"},\"instance\":{},\"state\":\"\"}"
 }
 `
-
 )
