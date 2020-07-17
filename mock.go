@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"github.com/packethost/cacher/protos/cacher"
 	"os"
 
 	tink "github.com/tinkerbell/tink/protos/hardware"
 
-	"github.com/packethost/cacher/protos/cacher"
 	"google.golang.org/grpc"
 )
 
@@ -20,6 +21,8 @@ func (hg hardwareGetterMock) ByIP(ctx context.Context, in getRequest, opts ...gr
 	var hw hardware
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
+	case "":
+		hw = &cacher.Hardware{JSON: hg.hardwareResp}
 	case "1":
 		hw = &tink.Hardware{}
 		err := json.Unmarshal([]byte(hg.hardwareResp), hw)
@@ -27,7 +30,7 @@ func (hg hardwareGetterMock) ByIP(ctx context.Context, in getRequest, opts ...gr
 			return nil, err
 		}
 	default:
-		hw = &cacher.Hardware{JSON: hg.hardwareResp}
+		return nil, errors.New("unknown DATA_MODEL_VERSION")
 	}
 
 	return hw, nil

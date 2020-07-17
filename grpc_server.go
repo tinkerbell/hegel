@@ -51,11 +51,6 @@ type exportedHardwareTinkerbell struct {
 	Metadata interface{} `json:"metadata"`
 }
 
-// exportedinstancemetadata/userdata/components
-// - userdata is just a string from hardware (tink) metadata.instance.userdata
-// - metadata json matches api data structure
-// - components info from metadata.components
-
 type instance struct {
 	ID       string `json:"id"`
 	State    string `json:"state"`
@@ -183,10 +178,12 @@ func exportHardware(hw []byte) ([]byte, error) {
 
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
+	case "":
+		exported = &exportedHardwareCacher{}
 	case "1":
 		exported = &exportedHardwareTinkerbell{}
 	default:
-		exported = &exportedHardwareCacher{}
+		return nil, errors.New("unknown DATA_MODEL_VERSION")
 	}
 
 	err := json.Unmarshal(hw, exported)
@@ -200,6 +197,16 @@ func exportUserData(hw []byte) ([]byte, error) {
 	var userdata string
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
+	case "":
+		hwJSON := make(map[string]interface{})
+		err := json.Unmarshal(hw, &hwJSON)
+		if err != nil {
+			return nil, err
+		}
+
+		if instance, ok := hwJSON["instance"].(map[string]interface{}); ok {
+			userdata, _ = instance["userdata"].(string)
+		}
 	case "1":
 
 		hwJSON := make(map[string]interface{})
@@ -220,15 +227,7 @@ func exportUserData(hw []byte) ([]byte, error) {
 			userdata, _ = instance["userdata"].(string)
 		}
 	default:
-		hwJSON := make(map[string]interface{})
-		err := json.Unmarshal(hw, &hwJSON)
-		if err != nil {
-			return nil, err
-		}
-
-		if instance, ok := hwJSON["instance"].(map[string]interface{}); ok {
-			userdata, _ = instance["userdata"].(string)
-		}
+		return nil, errors.New("unknown DATA_MODEL_VERSION")
 	}
 
 	return []byte(userdata), nil
@@ -325,25 +324,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	var cancel context.CancelFunc
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
-	case "1":
-		hw, err := s.hardwareClient.ByIP(stream.Context(), &tink.GetRequest{
-			Ip: ip,
-		})
-
-		if err != nil {
-			return initError(err)
-		}
-
-		ctx, cancel = context.WithCancel(stream.Context())
-		watch, err = s.hardwareClient.Watch(ctx, &tink.GetRequest{
-			Id: hw.(*tink.Hardware).Id,
-		})
-
-		if err != nil {
-			cancel()
-			return initError(err)
-		}
-	default:
+	case "":
 		hw, err := s.hardwareClient.ByIP(stream.Context(), &cacher.GetRequest{
 			IP: ip,
 		})
@@ -369,6 +350,26 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 			cancel()
 			return initError(err)
 		}
+	case "1":
+		hw, err := s.hardwareClient.ByIP(stream.Context(), &tink.GetRequest{
+			Ip: ip,
+		})
+
+		if err != nil {
+			return initError(err)
+		}
+
+		ctx, cancel = context.WithCancel(stream.Context())
+		watch, err = s.hardwareClient.Watch(ctx, &tink.GetRequest{
+			Id: hw.(*tink.Hardware).Id,
+		})
+
+		if err != nil {
+			cancel()
+			return initError(err)
+		}
+	default:
+		return errors.New("unknown DATA_MODEL_VERSION")
 	}
 
 	metrics.Subscriptions.WithLabelValues("initializing").Dec()
@@ -390,6 +391,18 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 			var hw []byte
 			dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 			switch dataModelVersion {
+			case "":
+				wc := watch.(cacher.Cacher_WatchClient)
+				resp, err := wc.Recv()
+				if err != nil {
+					if err == io.EOF {
+						err = status.Error(codes.OK, "stream ended")
+					}
+					errs <- err
+					close(ehws)
+					return
+				}
+				hw = []byte(resp.JSON)
 			case "1":
 				wt := watch.(tink.HardwareService_WatchClient)
 				resp, err := wt.Recv()
@@ -408,17 +421,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 					return
 				}
 			default:
-				wc := watch.(cacher.Cacher_WatchClient)
-				resp, err := wc.Recv()
-				if err != nil {
-					if err == io.EOF {
-						err = status.Error(codes.OK, "stream ended")
-					}
-					errs <- err
-					close(ehws)
-					return
-				}
-				hw = []byte(resp.JSON)
+				errs <- errors.New("unknown DATA_MODEL_VERSION")
 			}
 
 			ehw, err := exportHardware(hw)
@@ -460,25 +463,7 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 	var hw []byte
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
-	case "1":
-		req := &tink.GetRequest{
-			Ip: userIP,
-		}
-		resp, err := s.hardwareClient.ByIP(ctx, req) // use wrapper?
-
-		if err != nil {
-			return nil, err
-		}
-
-		if resp == nil {
-			return nil, errors.New("could not find hardware")
-		}
-
-		hw, err = json.Marshal(resp)
-		if err != nil {
-			return nil, errors.New("could not marshal hardware")
-		}
-	default:
+	case "":
 		req := &cacher.GetRequest{
 			IP: userIP,
 		}
@@ -493,13 +478,27 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 		}
 
 		hw = []byte(resp.(*cacher.Hardware).JSON)
+	case "1":
+		req := &tink.GetRequest{
+			Ip: userIP,
+		}
+		resp, err := s.hardwareClient.ByIP(ctx, req)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if resp == nil {
+			return nil, errors.New("could not find hardware")
+		}
+
+		hw, err = json.Marshal(resp)
+		if err != nil {
+			return nil, errors.New("could not marshal hardware")
+		}
+	default:
+		return nil, errors.New("unknown DATA_MODEL_VERSION")
 	}
 
 	return hw, nil
-
-	//ehw, err := exportHardware(hw)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//return ehw, nil
 }

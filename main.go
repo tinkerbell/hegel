@@ -182,14 +182,7 @@ func main() {
 	var hg hardwareGetter
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
-	case "1":
-		tc, err := tinkClient.TinkHardwareClient()
-		if err != nil {
-			logger.Fatal(err, "Failed to create the tink client")
-		}
-		hg = hardwareGetterTinkerbell{tc}
-		// add health check for tink?
-	default:
+	case "":
 		cc, err := cacherClient.New(*facility)
 		if err != nil {
 			logger.Fatal(err, "Failed to create the cacher client")
@@ -228,6 +221,15 @@ func main() {
 			}
 
 		}()
+	case "1":
+		tc, err := tinkClient.TinkHardwareClient()
+		if err != nil {
+			logger.Fatal(err, "Failed to create the tink client")
+		}
+		hg = hardwareGetterTinkerbell{tc}
+		// add health check for tink?
+	default:
+		logger.Fatal(errors.New("unknown DATA_MODEL_VERSION"))
 	}
 
 	grpcServer := grpc.NewServer(serverOpts...)
