@@ -161,7 +161,7 @@ var cacherGrpcTests = map[string]struct {
 	error            string
 }{
 	"cacher": {
-		remote:           "192.168.1.5",
+		remote: "192.168.1.5",
 
 		state:            "provisioning",
 		facility:         "onprem",

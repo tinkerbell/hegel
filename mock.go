@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/packethost/cacher/protos/cacher"
 	"os"
+
+	"github.com/packethost/cacher/protos/cacher"
 
 	tink "github.com/tinkerbell/tink/protos/hardware"
 

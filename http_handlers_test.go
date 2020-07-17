@@ -187,27 +187,27 @@ func TestGetUserDataTinkerbell(t *testing.T) {
 }
 
 var cacherMetadataTests = map[string]struct {
-	id       string
-	remote   string
-	arch string
-	state string
-	efiBoot bool
-	planSlug string
-	facility string
-	hostname string
+	id          string
+	remote      string
+	arch        string
+	state       string
+	efiBoot     bool
+	planSlug    string
+	facility    string
+	hostname    string
 	bondingMode int
-	json     string
+	json        string
 }{
 	"cacher": {
 		id:       "8978e7d4-1a55-4845-8a66-a5259236b104",
 		remote:   "192.168.1.5",
-		arch: "x86_64",
-		state: "provisioning",
-		efiBoot: false,
+		arch:     "x86_64",
+		state:    "provisioning",
+		efiBoot:  false,
 		planSlug: "t1.small.x86",
 		facility: "onprem",
 
-		json:     cacherDataModel,
+		json: cacherDataModel,
 	},
 }
 
