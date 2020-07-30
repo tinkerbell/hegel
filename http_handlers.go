@@ -25,7 +25,7 @@ var (
 			"iqn":         ".iqn",
 			"plan":        ".plan",
 			"facility":    ".facility",
-			"tags":        ".tags",
+			"tags":        ".tags[]",
 			"operating-system": map[string]interface{}{
 				"_base":   ".operating_system",
 				"slug":    ".slug",
@@ -37,11 +37,11 @@ var (
 				},
 				"image_tag": ".image_tag",
 			},
-			"public-keys": ".ssh_keys",
+			"public-keys": ".ssh_keys[]",
 			"spot":        ".spot.termination_time", // TODO (kdeng3849) need to check actual structure
-			"public-ipv4": `.network.addresses.[] | select(.address_family == 4 and .public == true) | .address`,
-			"public-ipv6": `.network.addresses.[] | select(.address_family == 6 and .public == true) | .address`,
-			"local-ipv4":  `.network.addresses.[] | select(.address_family == 4 and .public == false) | .address`,
+			"public-ipv4": `.network.addresses[] | select(.address_family == 4 and .public == true) | .address`,
+			"public-ipv6": `.network.addresses[] | select(.address_family == 6 and .public == true) | .address`,
+			"local-ipv4":  `.network.addresses[] | select(.address_family == 4 and .public == false) | .address`,
 		},
 	}
 )
@@ -155,15 +155,23 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 		res, err := processEC2Query(r.URL.Path)
 		if err != nil {
 			logger.Error(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"status":500,"message":"Invalid metadata item"}`))
+			w.WriteHeader(http.StatusNotFound)
+			_, err := w.Write([]byte("404 not found"))
+			if err != nil {
+				logger.Error(err, "failed to write error response")
+			}
 		}
 
 		var resp []byte
 		if filter, ok := res.(string); ok {
 			resp, err = filterMetadata(hw, filter)
+			if err != nil {
+				logger.Info("Error in filtering metadata: ", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 		} else if submenu, ok := res.(map[string]interface{}); ok {
-			for item, _ := range submenu {
+			for item := range submenu {
 				switch item {
 				case "_base": // _base is only used to keep track of the base filter, not a metadata item
 					continue
@@ -185,7 +193,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func processEC2Query(query string) (interface{}, error) {
-	q := strings.TrimRight(strings.TrimLeft(query, "/2009-04-04/"), "/") // remove base pattern and any trailing slashes
+	q := strings.TrimRight(strings.TrimPrefix(query, "/2009-04-04/"), "/") // remove base pattern and any trailing slashes
 	accessors := strings.Split(q, "/")
 
 	var base string

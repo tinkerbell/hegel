@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"net"
@@ -177,7 +178,7 @@ func exportHardware(hw []byte) ([]byte, error) {
 }
 
 func filterMetadata(hw []byte, filter string) ([]byte, error) {
-	var result interface{}
+	var result string
 	query, err := gojq.Parse(filter)
 	if err != nil {
 		return nil, err
@@ -196,16 +197,19 @@ func filterMetadata(hw []byte, filter string) ([]byte, error) {
 		if err, ok := v.(error); ok {
 			return nil, err
 		}
-		result = v
+
+		if vString, ok := v.(string); ok { // if already a string, don't marshal
+			result = fmt.Sprintln(result + vString) // append v to result
+		} else if v != nil { // if nil, don't marshal (json.Marshal(nil) returns "null")
+			vByte, err := json.Marshal(v)
+			if err != nil {
+				return nil, err
+			}
+			result = fmt.Sprintln(result + string(vByte)) // append v to result
+		}
 	}
 
-	if resultString, ok := result.(string); ok { // if already a string, don't marshal
-		return []byte(resultString), nil
-	}
-	if result != nil { // if nil, don't marshal (json.Marshal(nil) returns "null")
-		return json.Marshal(result)
-	}
-	return nil, nil
+	return []byte(strings.TrimSuffix(result, "\n")), nil
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of exportedHardwareCacher
