@@ -415,7 +415,7 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 		req := &tink.GetRequest{
 			Ip: userIP,
 		}
-		resp, err := s.hardwareClient.ByIP(ctx, req) // use wrapper?
+		resp, err := s.hardwareClient.ByIP(ctx, req)
 
 		if err != nil {
 			return nil, err

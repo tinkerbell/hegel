@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -93,6 +94,90 @@ func getMetadata(filter string) http.HandlerFunc {
 			logger.Fatal(errors.New("unknown DATA_MODEL_VERSION"))
 
 		}
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		_, err = w.Write(resp)
+		if err != nil {
+			logger.Error(err, "failed to write Metadata")
+		}
+	}
+}
+
+func ec2Handler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		return
+	}
+
+	logger.Debug("Calling ec2Handler ")
+	userIP := getIPFromRequest(r)
+	if userIP != "" {
+		metrics.MetadataRequests.Inc()
+		logger.With("userIP", userIP).Info("Actual IP is: ")
+		hw, err := getByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
+		if err != nil {
+			metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
+			logger.Info("Error in finding hardware: ", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		filters = map[string]interface{}{
+			"user-data": ".metadata.userdata",
+			"meta-data": map[string]interface{}{
+				"instance-id": ".metadata.instance.id",
+				"hostname":    ".metadata.instance.hostname",
+				"iqn":         ".metadata.instance.iqn",
+				"plan":        ".metadata.instance.plan",
+				"facility":    ".metadata.instance.facility",
+				"tags":        ".metadata.instance.tags",
+				"operating-system": map[string]interface{}{
+					"slug":    ".metadata.instance.operating_system.slug",
+					"distro":  ".metadata.instance.operating_system.distro",
+					"version": ".metadata.instance.operating_system.version",
+					"license_activation": map[string]interface{}{
+						"state": ".metadata.instance.operating_system.license_activation.state",
+					},
+					"image_tag": ".metadata.instance.operating_system.image_tag",
+				},
+				"public-keys": ".metadata.instance.ssh_keys",
+				"spot":        ".metadata.instance.spot.termination_time",
+				"public-ipv4": `.metadata.instance.network.addresses.[] | select(.address_family == 4 and .public == true) | .address`,
+				"public-ipv6": `.metadata.instance.network.addresses.[] | select(.address_family == 6 and .public == true) | .address`,
+				"local-ipv4":  `.metadata.instance.network.addresses.[] | select(.address_family == 4 and .public == false) | .address`,
+			},
+		}
+
+		query := strings.TrimRight(strings.TrimLeft(r.URL.Path, "/2009-04-04/"), "/") // remove base pattern and any trailing slashes
+		accessors := strings.Split(query, "/")
+
+		var res interface{} = filters
+		for _, accessor := range accessors {
+			item := res.(map[string]interface{})[accessor] // either a filter or another (sub) map of filters
+
+			if filter, ok := item.(string); ok { // if is an actual filter
+				res = filter
+			} else if subfilters, ok := item.(map[string]interface{}); ok { // if is another map of filters
+				res = subfilters
+			} else {
+				logger.Error(errors.New("invalid metadata item"))
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(`{"status":500,"message":"Invalid metadata item"}`))
+				return
+			}
+		}
+
+		var resp []byte
+		if filter, ok := res.(string); ok {
+			resp, err = filterMetadata(hw, filter)
+		} else if submenu, ok := res.(map[string]interface{}); ok {
+			for item, _ := range submenu {
+				if item == "spot" { /////// don't list if instance isn't a spot instance
+
+				}
+				resp = []byte(fmt.Sprintln(string(resp) + item))
+			}
+		}
+
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		_, err = w.Write(resp)

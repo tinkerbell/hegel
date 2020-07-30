@@ -60,6 +60,7 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 		hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
 		http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
+
 		err := registerCustomEndpoints()
 		if err != nil {
 			t.Fatal("Error registering custom endpoints", err)
@@ -106,6 +107,7 @@ func TestGetMetadataTinkerbellKant(t *testing.T) {
 		hegelServer.hardwareClient = hardwareGetterMock{test.json}
 
 		http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
+
 		err := registerCustomEndpoints()
 		if err != nil {
 			t.Fatal("Error registering custom endpoints", err)
@@ -145,6 +147,7 @@ func TestRegisterEndpoints(t *testing.T) {
 		}
 
 		http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
+
 		err := registerCustomEndpoints()
 		if err != nil {
 			t.Fatal("Error registering custom endpoints", err)

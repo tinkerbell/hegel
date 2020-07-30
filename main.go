@@ -95,6 +95,7 @@ var (
 	metricsPort = flag.Int("http_port", envInt("HEGEL_HTTP_PORT", 50061),
 		"Port to liten on http")
 	customEndpoints     string
+	filters             map[string]interface{}
 	gitRev              string = "undefind"
 	gitRevJSON          []byte
 	StartTime           = time.Now()
@@ -252,6 +253,9 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/_packet/healthcheck", healthCheckHandler)
 	http.HandleFunc("/_packet/version", versionHandler)
+	http.HandleFunc("/2009-04-04", ec2Handler) // TODO (kdeng3849) find a better way register optional slash
+	http.HandleFunc("/2009-04-04/", ec2Handler)
+
 	err = registerCustomEndpoints()
 	if err != nil {
 		logger.Fatal(err, "could not register custom endpoints")
@@ -281,7 +285,7 @@ func registerCustomEndpoints() error {
 	endpoints := make(map[string]string)
 	err := json.Unmarshal([]byte(customEndpoints), &endpoints)
 	if err != nil {
-		logger.Info("Error in parsing custom endpoints: ", err)
+		return err
 	}
 	for endpoint, filter := range endpoints {
 		http.HandleFunc(endpoint, getMetadata(filter))
