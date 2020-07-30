@@ -19,26 +19,29 @@ var (
 	ec2Filters = map[string]interface{}{
 		"user-data": ".metadata.userdata",
 		"meta-data": map[string]interface{}{
-			"instance-id": ".metadata.instance.id",
-			"hostname":    ".metadata.instance.hostname",
-			"iqn":         ".metadata.instance.iqn",
-			"plan":        ".metadata.instance.plan",
-			"facility":    ".metadata.instance.facility",
-			"tags":        ".metadata.instance.tags",
+			"_base":       ".metadata.instance",
+			"instance-id": ".id",
+			"hostname":    ".hostname",
+			"iqn":         ".iqn",
+			"plan":        ".plan",
+			"facility":    ".facility",
+			"tags":        ".tags",
 			"operating-system": map[string]interface{}{
-				"slug":    ".metadata.instance.operating_system.slug",
-				"distro":  ".metadata.instance.operating_system.distro",
-				"version": ".metadata.instance.operating_system.version",
+				"_base":   ".operating_system",
+				"slug":    ".slug",
+				"distro":  ".distro",
+				"version": ".version",
 				"license_activation": map[string]interface{}{
-					"state": ".metadata.instance.operating_system.license_activation.state",
+					"_base": ".license_activation",
+					"state": ".state",
 				},
-				"image_tag": ".metadata.instance.operating_system.image_tag",
+				"image_tag": ".image_tag",
 			},
-			"public-keys": ".metadata.instance.ssh_keys",
-			"spot":        ".metadata.instance.spot.termination_time",
-			"public-ipv4": `.metadata.instance.network.addresses.[] | select(.address_family == 4 and .public == true) | .address`,
-			"public-ipv6": `.metadata.instance.network.addresses.[] | select(.address_family == 6 and .public == true) | .address`,
-			"local-ipv4":  `.metadata.instance.network.addresses.[] | select(.address_family == 4 and .public == false) | .address`,
+			"public-keys": ".ssh_keys",
+			"spot":        ".spot.termination_time", // TODO (kdeng3849) need to check actual structure
+			"public-ipv4": `.network.addresses.[] | select(.address_family == 4 and .public == true) | .address`,
+			"public-ipv6": `.network.addresses.[] | select(.address_family == 6 and .public == true) | .address`,
+			"local-ipv4":  `.network.addresses.[] | select(.address_family == 4 and .public == false) | .address`,
 		},
 	}
 )
@@ -161,10 +164,14 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 			resp, err = filterMetadata(hw, filter)
 		} else if submenu, ok := res.(map[string]interface{}); ok {
 			for item, _ := range submenu {
-				if item == "spot" { /////// don't list if instance isn't a spot instance
+				switch item {
+				case "_base": // _base is only used to keep track of the base filter, not a metadata item
+					continue
+				case "spot": /////// don't list if instance isn't a spot instance
 
+				default:
+					resp = []byte(fmt.Sprintln(string(resp) + item))
 				}
-				resp = []byte(fmt.Sprintln(string(resp) + item))
 			}
 		}
 
@@ -181,13 +188,19 @@ func processEC2Query(query string) (interface{}, error) {
 	q := strings.TrimRight(strings.TrimLeft(query, "/2009-04-04/"), "/") // remove base pattern and any trailing slashes
 	accessors := strings.Split(q, "/")
 
+	var base string
 	var res interface{} = ec2Filters
 	for _, accessor := range accessors {
+		if accessor == "_base" {
+			return nil, errors.New("invalid metadata item")
+		}
+
 		item := res.(map[string]interface{})[accessor] // either a filter or another (sub) map of filters
 
 		if filter, ok := item.(string); ok { // if is an actual filter
-			res = filter
+			res = fmt.Sprint(base, filter)
 		} else if subfilters, ok := item.(map[string]interface{}); ok { // if is another map of filters
+			base = fmt.Sprint(base, subfilters["_base"].(string))
 			res = subfilters
 		} else {
 			return nil, errors.New("invalid metadata item")
