@@ -15,6 +15,34 @@ import (
 	"github.com/packethost/hegel/metrics"
 )
 
+var (
+	ec2Filters = map[string]interface{}{
+		"user-data": ".metadata.userdata",
+		"meta-data": map[string]interface{}{
+			"instance-id": ".metadata.instance.id",
+			"hostname":    ".metadata.instance.hostname",
+			"iqn":         ".metadata.instance.iqn",
+			"plan":        ".metadata.instance.plan",
+			"facility":    ".metadata.instance.facility",
+			"tags":        ".metadata.instance.tags",
+			"operating-system": map[string]interface{}{
+				"slug":    ".metadata.instance.operating_system.slug",
+				"distro":  ".metadata.instance.operating_system.distro",
+				"version": ".metadata.instance.operating_system.version",
+				"license_activation": map[string]interface{}{
+					"state": ".metadata.instance.operating_system.license_activation.state",
+				},
+				"image_tag": ".metadata.instance.operating_system.image_tag",
+			},
+			"public-keys": ".metadata.instance.ssh_keys",
+			"spot":        ".metadata.instance.spot.termination_time",
+			"public-ipv4": `.metadata.instance.network.addresses.[] | select(.address_family == 4 and .public == true) | .address`,
+			"public-ipv6": `.metadata.instance.network.addresses.[] | select(.address_family == 6 and .public == true) | .address`,
+			"local-ipv4":  `.metadata.instance.network.addresses.[] | select(.address_family == 4 and .public == false) | .address`,
+		},
+	}
+)
+
 func versionHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, err := w.Write(gitRevJSON)
@@ -121,49 +149,11 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		filters = map[string]interface{}{
-			"user-data": ".metadata.userdata",
-			"meta-data": map[string]interface{}{
-				"instance-id": ".metadata.instance.id",
-				"hostname":    ".metadata.instance.hostname",
-				"iqn":         ".metadata.instance.iqn",
-				"plan":        ".metadata.instance.plan",
-				"facility":    ".metadata.instance.facility",
-				"tags":        ".metadata.instance.tags",
-				"operating-system": map[string]interface{}{
-					"slug":    ".metadata.instance.operating_system.slug",
-					"distro":  ".metadata.instance.operating_system.distro",
-					"version": ".metadata.instance.operating_system.version",
-					"license_activation": map[string]interface{}{
-						"state": ".metadata.instance.operating_system.license_activation.state",
-					},
-					"image_tag": ".metadata.instance.operating_system.image_tag",
-				},
-				"public-keys": ".metadata.instance.ssh_keys",
-				"spot":        ".metadata.instance.spot.termination_time",
-				"public-ipv4": `.metadata.instance.network.addresses.[] | select(.address_family == 4 and .public == true) | .address`,
-				"public-ipv6": `.metadata.instance.network.addresses.[] | select(.address_family == 6 and .public == true) | .address`,
-				"local-ipv4":  `.metadata.instance.network.addresses.[] | select(.address_family == 4 and .public == false) | .address`,
-			},
-		}
-
-		query := strings.TrimRight(strings.TrimLeft(r.URL.Path, "/2009-04-04/"), "/") // remove base pattern and any trailing slashes
-		accessors := strings.Split(query, "/")
-
-		var res interface{} = filters
-		for _, accessor := range accessors {
-			item := res.(map[string]interface{})[accessor] // either a filter or another (sub) map of filters
-
-			if filter, ok := item.(string); ok { // if is an actual filter
-				res = filter
-			} else if subfilters, ok := item.(map[string]interface{}); ok { // if is another map of filters
-				res = subfilters
-			} else {
-				logger.Error(errors.New("invalid metadata item"))
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(`{"status":500,"message":"Invalid metadata item"}`))
-				return
-			}
+		res, err := processEC2Query(r.URL.Path)
+		if err != nil {
+			logger.Error(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"status":500,"message":"Invalid metadata item"}`))
 		}
 
 		var resp []byte
@@ -185,6 +175,25 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 			logger.Error(err, "failed to write Metadata")
 		}
 	}
+}
+
+func processEC2Query(query string) (interface{}, error) {
+	q := strings.TrimRight(strings.TrimLeft(query, "/2009-04-04/"), "/") // remove base pattern and any trailing slashes
+	accessors := strings.Split(q, "/")
+
+	var res interface{} = ec2Filters
+	for _, accessor := range accessors {
+		item := res.(map[string]interface{})[accessor] // either a filter or another (sub) map of filters
+
+		if filter, ok := item.(string); ok { // if is an actual filter
+			res = filter
+		} else if subfilters, ok := item.(map[string]interface{}); ok { // if is another map of filters
+			res = subfilters
+		} else {
+			return nil, errors.New("invalid metadata item")
+		}
+	}
+	return res, nil
 }
 
 func getIPFromRequest(r *http.Request) string {

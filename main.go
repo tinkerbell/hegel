@@ -95,7 +95,6 @@ var (
 	metricsPort = flag.Int("http_port", envInt("HEGEL_HTTP_PORT", 50061),
 		"Port to liten on http")
 	customEndpoints     string
-	filters             map[string]interface{}
 	gitRev              string = "undefind"
 	gitRevJSON          []byte
 	StartTime           = time.Now()
