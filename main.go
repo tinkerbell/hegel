@@ -252,7 +252,7 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/_packet/healthcheck", healthCheckHandler)
 	http.HandleFunc("/_packet/version", versionHandler)
-	http.HandleFunc("/2009-04-04", ec2Handler) // TODO (kdeng3849) find a better way register optional slash
+	http.HandleFunc("/2009-04-04", ec2Handler) // workaround for making trailing slash optional
 	http.HandleFunc("/2009-04-04/", ec2Handler)
 
 	err = registerCustomEndpoints()

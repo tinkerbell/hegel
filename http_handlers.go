@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -171,6 +172,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else if submenu, ok := res.(map[string]interface{}); ok {
+			var keys []string
 			for item := range submenu {
 				switch item {
 				case "_base": // _base is only used to keep track of the base filter, not a metadata item
@@ -178,9 +180,19 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 				case "spot": /////// don't list if instance isn't a spot instance
 
 				default:
-					resp = []byte(fmt.Sprintln(string(resp) + item))
+					keys = append(keys, item)
 				}
 			}
+
+			sort.Strings(keys)
+
+			for _, item := range keys {
+				resp = []byte(fmt.Sprintln(string(resp) + item))
+			}
+		} else {
+			logger.Error(err, "unexpected result from processEC2Query: result should just either be a string or a map")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -192,11 +204,13 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// processEC2Query returns either a specific filter (used to parse hardware data for the value of a specific field),
+// or a map of filters (used for printing out its keys)
 func processEC2Query(query string) (interface{}, error) {
 	var result interface{} = ec2Filters
 
 	q := strings.Trim(strings.TrimPrefix(query, "/2009-04-04"), "/") // remove base pattern and extra slashes
-	if q == "" {
+	if q == "" {                                                     // if query was just the base pattern
 		return result, nil
 	}
 	accessors := strings.Split(q, "/")
