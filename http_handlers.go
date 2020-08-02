@@ -178,8 +178,15 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 				switch item {
 				case "_base": // _base is only used to keep track of the base filter, not a metadata item
 					continue
-				case "spot": /////// don't list if instance isn't a spot instance
-
+				case "spot": // list only if instance is spot
+					spotFilter := fmt.Sprint(submenu["_base"], submenu[item].(map[string]interface{})["_base"])
+					resp, err := filterMetadata(hw, spotFilter) // ".metadata.instance.spot"
+					if err != nil {
+						logger.Info("Error in filtering metadata: ", err)
+					}
+					if string(resp) != "" {
+						keys = append(keys, item)
+					}
 				default:
 					keys = append(keys, item)
 				}

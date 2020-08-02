@@ -401,6 +401,13 @@ tags
 		response: "7c9a5711-aadd-4fa0-8e57-789431626a27",
 		json:     tinkerbellKantEC2,
 	},
+	"public-ipv4": {
+		url:      "/2009-04-04/meta-data/public-ipv4",
+		remote:   "192.168.1.5",
+		status:   200,
+		response: "139.175.86.114",
+		json:     tinkerbellKantEC2,
+	},
 	"tags": {
 		url:    "/2009-04-04/meta-data/tags",
 		remote: "192.168.1.5",
@@ -454,5 +461,31 @@ user-data
 user-data
 `,
 		json: tinkerbellKantEC2,
+	},
+	"spot instance with empty spot field": {
+		url:    "/2009-04-04/meta-data",
+		remote: "192.168.1.5",
+		status: 200,
+		response: `facility
+hostname
+instance-id
+iqn
+local-ipv4
+operating-system
+plan
+public-ipv4
+public-ipv6
+public-keys
+spot
+tags
+`,
+		json: tinkerbellKantEC2SpotEmpty,
+	},
+	"termination-time": {
+		url:      "/2009-04-04/meta-data/spot/termination-time",
+		remote:   "192.168.1.5",
+		status:   200,
+		response: "now",
+		json:     tinkerbellKantEC2SpotWithTermination,
 	},
 }
