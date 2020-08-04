@@ -93,6 +93,7 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 func getMetadata(filter string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
 
@@ -140,75 +141,78 @@ func getMetadata(filter string) http.HandlerFunc {
 
 func ec2Handler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
 	logger.Debug("Calling ec2Handler ")
 	userIP := getIPFromRequest(r)
-	if userIP != "" {
-		metrics.MetadataRequests.Inc()
-		logger.With("userIP", userIP).Info("Actual IP is: ")
-		hw, err := getByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
-		if err != nil {
-			metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
-			logger.Info("Error in finding hardware: ", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+	if userIP == "" {
+		return
+	}
 
-		res, err := processEC2Query(r.URL.Path)
-		if err != nil {
-			logger.Error(err)
-			w.WriteHeader(http.StatusNotFound)
-			_, err := w.Write([]byte("404 not found"))
-			if err != nil {
-				logger.Error(err, "failed to write error response")
-			}
-		}
+	metrics.MetadataRequests.Inc()
+	logger.With("userIP", userIP).Info("Actual IP is: ")
+	hw, err := getByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
+	if err != nil {
+		metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
+		logger.Info("Error in finding hardware: ", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-		var resp []byte
-		if filter, ok := res.(string); ok {
-			resp, err = filterMetadata(hw, filter)
-			if err != nil {
-				logger.Error(err, "Error in filtering metadata: ")
-			}
-		} else if submenu, ok := res.(map[string]interface{}); ok {
-			var keys []string
-			for item := range submenu {
-				switch item {
-				case "_base": // _base is only used to keep track of the base filter, not a metadata item
-					continue
-				case "spot": // list only if instance is spot
-					spotFilter := fmt.Sprint(submenu["_base"], submenu[item].(map[string]interface{})["_base"])
-					resp, err := filterMetadata(hw, spotFilter) // ".metadata.instance.spot"
-					if err != nil {
-						logger.Info("Error in filtering metadata: ", err)
-					}
-					if string(resp) != "" {
-						keys = append(keys, item)
-					}
-				default:
+	res, err := processEC2Query(r.URL.Path)
+	if err != nil {
+		logger.Error(err)
+		w.WriteHeader(http.StatusNotFound)
+		_, err := w.Write([]byte("404 not found"))
+		if err != nil {
+			logger.Error(err, "failed to write error response")
+		}
+	}
+
+	var resp []byte
+	if filter, ok := res.(string); ok {
+		resp, err = filterMetadata(hw, filter)
+		if err != nil {
+			logger.Error(err, "Error in filtering metadata: ")
+		}
+	} else if submenu, ok := res.(map[string]interface{}); ok {
+		var keys []string
+		for item := range submenu {
+			switch item {
+			case "_base": // _base is only used to keep track of the base filter, not a metadata item
+				continue
+			case "spot": // list only if instance is spot
+				spotFilter := fmt.Sprint(submenu["_base"], submenu[item].(map[string]interface{})["_base"])
+				resp, err := filterMetadata(hw, spotFilter) // ".metadata.instance.spot"
+				if err != nil {
+					logger.Info("Error in filtering metadata: ", err)
+				}
+				if string(resp) != "" {
 					keys = append(keys, item)
 				}
+			default:
+				keys = append(keys, item)
 			}
-
-			sort.Strings(keys)
-
-			for _, item := range keys {
-				resp = []byte(fmt.Sprintln(string(resp) + item))
-			}
-		} else {
-			logger.Error(err, "unexpected result from processEC2Query: result should just either be a string or a map")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
 		}
 
-		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Content-Type", "application/json")
-		_, err = w.Write(resp)
-		if err != nil {
-			logger.Error(err, "failed to write Metadata")
+		sort.Strings(keys)
+
+		for _, item := range keys {
+			resp = []byte(fmt.Sprintln(string(resp) + item))
 		}
+	} else {
+		logger.Error(err, "unexpected result from processEC2Query: result should just either be a string or a map")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	_, err = w.Write(resp)
+	if err != nil {
+		logger.Error(err, "failed to write Metadata")
 	}
 }
 

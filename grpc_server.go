@@ -199,13 +199,13 @@ func filterMetadata(hw []byte, filter string) ([]byte, error) {
 		}
 
 		if vString, ok := v.(string); ok { // if already a string, don't marshal
-			result = fmt.Sprintln(result + vString) // append v to result
+			result += fmt.Sprintln(vString) // append v to result
 		} else if v != nil { // if nil, don't marshal (json.Marshal(nil) returns "null")
 			vByte, err := json.Marshal(v)
 			if err != nil {
 				return nil, err
 			}
-			result = fmt.Sprintln(result + string(vByte)) // append v to result
+			result += fmt.Sprintln(string(vByte)) // append v to result
 		}
 	}
 
