@@ -274,7 +274,7 @@ var tinkerbellGrpcTests = map[string]struct {
 		json:             tinkerbellDataModel,
 	},
 	"tinkerbell no metadata": {
-		id:     "363115b0-f03d-4ce5-9a15-5514193d131a",
-		json:   tinkerbellNoMetadata,
+		id:   "363115b0-f03d-4ce5-9a15-5514193d131a",
+		json: tinkerbellNoMetadata,
 	},
 }
