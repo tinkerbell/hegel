@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -184,7 +183,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 			case "_base": // _base is only used to keep track of the base filter, not a metadata item
 				continue
 			case "spot": // list only if instance is spot
-				spotFilter := fmt.Sprint(submenu["_base"], submenu[item].(map[string]interface{})["_base"])
+				spotFilter := submenu["_base"].(string) + submenu[item].(map[string]interface{})["_base"].(string)
 				resp, err := filterMetadata(hw, spotFilter) // ".metadata.instance.spot"
 				if err != nil {
 					logger.Info("Error in filtering metadata: ", err)
@@ -196,11 +195,9 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 				keys = append(keys, item)
 			}
 		}
-
 		sort.Strings(keys)
-
 		for _, item := range keys {
-			resp = []byte(fmt.Sprintln(string(resp) + item))
+			resp = []byte(string(resp) + item + "\n")
 		}
 	} else {
 		logger.Error(err, "unexpected result from processEC2Query: result should just either be a string or a map")
@@ -239,9 +236,9 @@ func processEC2Query(query string) (interface{}, error) {
 		}
 
 		if filter, ok := item.(string); ok { // if is an actual filter
-			result = fmt.Sprint(base, filter)
+			result = base + filter
 		} else if subfilters, ok := item.(map[string]interface{}); ok { // if is another map of filters
-			base = fmt.Sprint(base, subfilters["_base"].(string))
+			base = base + subfilters["_base"].(string)
 			result = subfilters
 		} else {
 			return nil, errors.New("invalid metadata item")
