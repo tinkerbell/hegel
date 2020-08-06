@@ -107,7 +107,7 @@ func getMetadata(filter string) http.HandlerFunc {
 		hw, err := getByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
 		if err != nil {
 			metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
-			logger.Info("Error in finding hardware: ", err)
+			logger.With("error", err).Info("error finding hardware")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -118,12 +118,12 @@ func getMetadata(filter string) http.HandlerFunc {
 		case "":
 			resp, err = exportHardware(hw) // in cacher mode, the "filter" is the exportedHardwareCacher type
 			if err != nil {
-				logger.Info("Error in exporting hardware: ", err)
+				logger.With("error", err).Info("error exporting hardware")
 			}
 		case "1":
 			resp, err = filterMetadata(hw, filter)
 			if err != nil {
-				logger.Info("Error in filtering metadata: ", err)
+				logger.With("error", err).Info("error filtering metadata")
 			}
 		default:
 			logger.Fatal(errors.New("unknown DATA_MODEL_VERSION"))
@@ -155,7 +155,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 	hw, err := getByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
 	if err != nil {
 		metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
-		logger.Info("Error in finding hardware: ", err)
+		logger.With("error", err).Info("error finding hardware")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -186,7 +186,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 				spotFilter := submenu["_base"].(string) + submenu[item].(map[string]interface{})["_base"].(string)
 				resp, err := filterMetadata(hw, spotFilter) // ".metadata.instance.spot"
 				if err != nil {
-					logger.Info("Error in filtering metadata: ", err)
+					logger.With("error", err).Info("error filtering metadata")
 				}
 				if string(resp) != "" {
 					keys = append(keys, item)
