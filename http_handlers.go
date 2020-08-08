@@ -193,28 +193,35 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func processEC2Query(query string) (interface{}, error) {
-	q := strings.TrimRight(strings.TrimPrefix(query, "/2009-04-04/"), "/") // remove base pattern and any trailing slashes
+	var result interface{} = ec2Filters
+
+	q := strings.Trim(strings.TrimPrefix(query, "/2009-04-04"), "/") // remove base pattern and extra slashes
+	if q == "" {
+		return result, nil
+	}
 	accessors := strings.Split(q, "/")
 
 	var base string
-	var res interface{} = ec2Filters
 	for _, accessor := range accessors {
 		if accessor == "_base" {
 			return nil, errors.New("invalid metadata item")
 		}
 
-		item := res.(map[string]interface{})[accessor] // either a filter or another (sub) map of filters
+		var item interface{}
+		if filters, ok := result.(map[string]interface{}); ok {
+			item = filters[accessor] // either a filter or another (sub) map of filters
+		}
 
 		if filter, ok := item.(string); ok { // if is an actual filter
-			res = fmt.Sprint(base, filter)
+			result = fmt.Sprint(base, filter)
 		} else if subfilters, ok := item.(map[string]interface{}); ok { // if is another map of filters
 			base = fmt.Sprint(base, subfilters["_base"].(string))
-			res = subfilters
+			result = subfilters
 		} else {
 			return nil, errors.New("invalid metadata item")
 		}
 	}
-	return res, nil
+	return result, nil
 }
 
 func getIPFromRequest(r *http.Request) string {
