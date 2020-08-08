@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/tinkerbell/tink/protos/packet"
@@ -202,6 +203,24 @@ func TestEC2Endpoint(t *testing.T) {
 
 			if resp.Body.String() != test.response {
 				t.Errorf("handler returned wrong body: got %v want %v", resp.Body.String(), test.response)
+			}
+		})
+	}
+}
+
+func TestProcessEC2Query(t *testing.T) {
+	os.Setenv("DATA_MODEL_VERSION", "1")
+
+	for name, test := range processEC2QueryTests {
+		t.Run(name, func(t *testing.T) {
+
+			res, err := processEC2Query(test.query)
+			if err != nil && err.Error() != test.error {
+				t.Errorf("handler returned wrong error: got %v want %v", err, test.error)
+			}
+
+			if !reflect.DeepEqual(res, test.result) {
+				t.Errorf("handler returned wrong result: got %v want %v", res, test.result)
 			}
 		})
 	}
@@ -487,5 +506,44 @@ tags
 		status:   200,
 		response: "now",
 		json:     tinkerbellKantEC2SpotWithTermination,
+	},
+}
+
+// test cases for TestProcessEC2Query
+var processEC2QueryTests = map[string]struct {
+	query  string
+	error  string
+	result interface{}
+}{
+	"filter result (simple)": {
+		query:  "/2009-04-04/user-data",
+		result: ".metadata.userdata",
+	},
+	"filter result (multiple base filters)": {
+		query:  "/2009-04-04/meta-data/operating-system/license_activation/state",
+		result: ".metadata.instance.operating_system.license_activation.state",
+	},
+	"map result": {
+		query: "/2009-04-04/meta-data/operating-system/license_activation",
+		result: map[string]interface{}{
+			"_base": ".license_activation",
+			"state": ".state",
+		},
+	},
+	"map result (base endpoint)": {
+		query:  "/2009-04-04/",
+		result: ec2Filters,
+	},
+	"invalid query ('_base' as metadata item)": {
+		query: "/2009-04-04/_base",
+		error: "invalid metadata item",
+	},
+	"invalid query (invalid metadata item)": {
+		query: "/2009-04-04/invalid",
+		error: "invalid metadata item",
+	},
+	"invalid query (no subfilters)": {
+		query: "/2009-04-04/user-data/hostname",
+		error: "invalid metadata item",
 	},
 }
