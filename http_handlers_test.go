@@ -149,8 +149,8 @@ func TestRegisterEndpoints(t *testing.T) {
 		http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
 
 		err := registerCustomEndpoints()
-		if err != nil {
-			t.Fatal("Error registering custom endpoints", err)
+		if err != nil && err.Error() != test.error {
+			t.Fatalf("unexpected error: got %v want %v", err, test.error)
 		}
 
 		req, err := http.NewRequest("GET", test.url, nil)
@@ -174,6 +174,40 @@ func TestRegisterEndpoints(t *testing.T) {
 	}
 }
 
+func TestEC2Endpoint(t *testing.T) {
+	os.Setenv("DATA_MODEL_VERSION", "1")
+
+	for name, test := range tinkerbellEC2Tests {
+		t.Run(name, func(t *testing.T) {
+			hegelServer.hardwareClient = hardwareGetterMock{test.json}
+
+			http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
+
+			http.HandleFunc("/2009-04-04", ec2Handler) // workaround for making trailing slash optional
+			http.HandleFunc("/2009-04-04/", ec2Handler)
+
+			req, err := http.NewRequest("GET", test.url, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.RemoteAddr = test.remote
+			resp := httptest.NewRecorder()
+
+			http.DefaultServeMux.ServeHTTP(resp, req)
+
+			if status := resp.Code; status != test.status {
+				t.Errorf("handler returned wrong status code: got %v want %v",
+					status, test.status)
+			}
+
+			if resp.Body.String() != test.response {
+				t.Errorf("handler returned wrong body: got %v want %v", resp.Body.String(), test.response)
+			}
+		})
+	}
+}
+
+// test cases for TestGetMetadataCacher
 var cacherTests = map[string]struct {
 	id       string
 	remote   string
@@ -188,6 +222,7 @@ var cacherTests = map[string]struct {
 	},
 }
 
+// test cases for TestGetMetadataTinkerbell
 var tinkerbellTests = map[string]struct {
 	id          string
 	remote      string
@@ -207,6 +242,7 @@ var tinkerbellTests = map[string]struct {
 	},
 }
 
+// TestGetMetadataTinkerbellKant
 var tinkerbellKantTests = map[string]struct {
 	url      string
 	remote   string
@@ -246,17 +282,26 @@ echo "Hello world!"`,
 	},
 }
 
+// test cases for TestRegisterEndpoints
 var registerEndpointTests = map[string]struct {
 	customEndpoints     string
 	url                 string
 	remote              string
 	status              int
 	expectResponseEmpty bool
+	error               string
 	json                string
 }{
 	"single custom endpoint": {
 		customEndpoints: `{"/facility": ".metadata.facility"}`,
 		url:             "/facility",
+		remote:          "192.168.1.5",
+		status:          200,
+		json:            tinkerbellDataModel,
+	},
+	"single custom endpoint, non-metadata": {
+		customEndpoints: `{"/id": ".id"}`,
+		url:             "/id",
 		remote:          "192.168.1.5",
 		status:          200,
 		json:            tinkerbellDataModel,
@@ -286,6 +331,7 @@ var registerEndpointTests = map[string]struct {
 		url:             "/userdata",
 		remote:          "192.168.1.5",
 		status:          404,
+		error:           "invalid character ':' after top-level value",
 		json:            tinkerbellDataModel,
 	},
 	"custom endpoints invalid format (endpoint missing forward slash)": {
@@ -295,12 +341,118 @@ var registerEndpointTests = map[string]struct {
 		status:          404,
 		json:            tinkerbellDataModel,
 	},
-	"custom endpoints invalid format (invalid jq filter)": {
+	"custom endpoints invalid format (invalid jq filter syntax)": {
 		customEndpoints:     `{"/userdata":"invalid"}`,
 		url:                 "/userdata",
 		remote:              "192.168.1.5",
 		status:              200,
 		expectResponseEmpty: true,
 		json:                tinkerbellDataModel,
+	},
+	"custom endpoints invalid format (valid jq filter syntax, nonexistent field)": {
+		customEndpoints:     `{"/userdata":".nonexistent"}`,
+		url:                 "/userdata",
+		remote:              "192.168.1.5",
+		status:              200,
+		expectResponseEmpty: true,
+		json:                tinkerbellDataModel,
+	},
+}
+
+// test cases for TestEC2Endpoint
+var tinkerbellEC2Tests = map[string]struct {
+	url      string
+	remote   string
+	status   int
+	response string
+	json     string
+}{
+	"user-data": {
+		url:    "/2009-04-04/user-data",
+		remote: "192.168.1.5",
+		status: 200,
+		response: `#!/bin/bash
+
+echo "Hello world!"`,
+		json: tinkerbellKantEC2,
+	},
+	"meta-data": {
+		url:    "/2009-04-04/meta-data",
+		remote: "192.168.1.5",
+		status: 200,
+		response: `facility
+hostname
+instance-id
+iqn
+local-ipv4
+operating-system
+plan
+public-ipv4
+public-ipv6
+public-keys
+tags
+`,
+		json: tinkerbellKantEC2,
+	},
+	"instance-id": {
+		url:      "/2009-04-04/meta-data/instance-id",
+		remote:   "192.168.1.5",
+		status:   200,
+		response: "7c9a5711-aadd-4fa0-8e57-789431626a27",
+		json:     tinkerbellKantEC2,
+	},
+	"tags": {
+		url:    "/2009-04-04/meta-data/tags",
+		remote: "192.168.1.5",
+		status: 200,
+		response: `hello
+test`,
+		json: tinkerbellKantEC2,
+	},
+	"operating-system slug": {
+		url:      "/2009-04-04/meta-data/operating-system/slug",
+		remote:   "192.168.1.5",
+		status:   200,
+		response: "ubuntu_18_04",
+		json:     tinkerbellKantEC2,
+	},
+	"invalid metadata item": {
+		url:      "/2009-04-04/meta-data/invalid",
+		remote:   "192.168.1.5",
+		status:   404,
+		response: "404 not found",
+		json:     tinkerbellKantEC2,
+	},
+	"valid metadata item, but not found": {
+		url:      "/2009-04-04/meta-data/public-keys",
+		remote:   "192.168.1.5",
+		status:   200,
+		response: "",
+		json:     tinkerbellNoMetadata,
+	},
+	"with trailing slash": {
+		url:      "/2009-04-04/meta-data/hostname/",
+		remote:   "192.168.1.5",
+		status:   200,
+		response: "tink-provisioner",
+		json:     tinkerbellKantEC2,
+	},
+	"base endpoint": {
+		url:    "/2009-04-04",
+		remote: "192.168.1.5",
+		status: 200,
+		response: `meta-data
+user-data
+`,
+		json: tinkerbellKantEC2,
+	},
+	"base endpoint with trailing slash": {
+		url:    "/2009-04-04/",
+		remote: "192.168.1.5",
+		status: 200,
+		response: `meta-data
+user-data
+`,
+		json: tinkerbellKantEC2,
 	},
 }

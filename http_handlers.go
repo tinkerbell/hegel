@@ -26,7 +26,7 @@ var (
 			"iqn":         ".iqn",
 			"plan":        ".plan",
 			"facility":    ".facility",
-			"tags":        ".tags[]",
+			"tags":        ".tags[]?",
 			"operating-system": map[string]interface{}{
 				"_base":   ".operating_system",
 				"slug":    ".slug",
@@ -38,11 +38,14 @@ var (
 				},
 				"image_tag": ".image_tag",
 			},
-			"public-keys": ".ssh_keys[]",
-			"spot":        ".spot.termination_time", // TODO (kdeng3849) need to check actual structure
-			"public-ipv4": `.network.addresses[] | select(.address_family == 4 and .public == true) | .address`,
-			"public-ipv6": `.network.addresses[] | select(.address_family == 6 and .public == true) | .address`,
-			"local-ipv4":  `.network.addresses[] | select(.address_family == 4 and .public == false) | .address`,
+			"public-keys": ".ssh_keys[]?",
+			"spot": map[string]interface{}{ // TODO (kdeng3849) need to check actual structure
+				"_base":            ".spot",
+				"termination-time": ".termination_time",
+			},
+			"public-ipv4": `.network.addresses[]? | select(.address_family == 4 and .public == true) | .address`,
+			"public-ipv6": `.network.addresses[]? | select(.address_family == 6 and .public == true) | .address`,
+			"local-ipv4":  `.network.addresses[]? | select(.address_family == 4 and .public == false) | .address`,
 		},
 	}
 )
@@ -167,9 +170,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 		if filter, ok := res.(string); ok {
 			resp, err = filterMetadata(hw, filter)
 			if err != nil {
-				logger.Info("Error in filtering metadata: ", err)
-				w.WriteHeader(http.StatusInternalServerError)
-				return
+				logger.Error(err, "Error in filtering metadata: ")
 			}
 		} else if submenu, ok := res.(map[string]interface{}); ok {
 			var keys []string
