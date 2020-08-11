@@ -214,7 +214,7 @@ func TestProcessEC2Query(t *testing.T) {
 	for name, test := range processEC2QueryTests {
 		t.Run(name, func(t *testing.T) {
 
-			res, err := processEC2Query(test.query)
+			res, err := processEC2Query(test.url)
 			if err != nil && err.Error() != test.error {
 				t.Errorf("handler returned wrong error: got %v want %v", err, test.error)
 			}
@@ -386,8 +386,7 @@ plan
 public-ipv4
 public-ipv6
 public-keys
-tags
-`,
+tags`,
 		json: tinkerbellKantEC2,
 	},
 	"instance-id": {
@@ -400,6 +399,18 @@ tags
 		url:      "/2009-04-04/meta-data/public-ipv4",
 		status:   200,
 		response: "139.175.86.114",
+		json:     tinkerbellKantEC2,
+	},
+	"public-ipv6": {
+		url:      "/2009-04-04/meta-data/public-ipv6",
+		status:   200,
+		response: "2604:1380:1000:ca00::7",
+		json:     tinkerbellKantEC2,
+	},
+	"local-ipv4": {
+		url:      "/2009-04-04/meta-data/local-ipv4",
+		status:   200,
+		response: "10.87.63.3",
 		json:     tinkerbellKantEC2,
 	},
 	"tags": {
@@ -437,16 +448,14 @@ test`,
 		url:    "/2009-04-04",
 		status: 200,
 		response: `meta-data
-user-data
-`,
+user-data`,
 		json: tinkerbellKantEC2,
 	},
 	"base endpoint with trailing slash": {
 		url:    "/2009-04-04/",
 		status: 200,
 		response: `meta-data
-user-data
-`,
+user-data`,
 		json: tinkerbellKantEC2,
 	},
 	"spot instance with empty spot field": {
@@ -463,8 +472,7 @@ public-ipv4
 public-ipv6
 public-keys
 spot
-tags
-`,
+tags`,
 		json: tinkerbellKantEC2SpotEmpty,
 	},
 	"termination-time": {
@@ -477,36 +485,39 @@ tags
 
 // test cases for TestProcessEC2Query
 var processEC2QueryTests = map[string]struct {
-	query  string
+	url    string
 	error  string
 	result interface{}
 }{
 	"filter result (simple)": {
-		query:  "/2009-04-04/user-data",
+		url:    "/2009-04-04/user-data",
 		result: ".metadata.userdata",
 	},
 	"filter result (multiple base filters)": {
-		query:  "/2009-04-04/meta-data/operating-system/license_activation/state",
+		url:    "/2009-04-04/meta-data/operating-system/license_activation/state",
 		result: ".metadata.instance.operating_system.license_activation.state",
 	},
 	"map result": {
-		query:  "/2009-04-04/meta-data/operating-system/license_activation",
-		result: ec2Filters["meta-data"].(map[string]interface{})["operating-system"].(map[string]interface{})["license_activation"],
+		url:    "/2009-04-04/meta-data/operating-system/license_activation",
+		result: `"state"`,
 	},
 	"map result (base endpoint)": {
-		query:  "/2009-04-04/",
-		result: ec2Filters,
+		url:    "/2009-04-04/",
+		result: `"meta-data", "user-data"`,
 	},
 	"invalid query ('_base' as metadata item)": {
-		query: "/2009-04-04/_base",
-		error: "invalid metadata item",
+		url:    "/2009-04-04/_base",
+		error:  "invalid metadata item",
+		result: "",
 	},
 	"invalid query (invalid metadata item)": {
-		query: "/2009-04-04/invalid",
-		error: "invalid metadata item",
+		url:    "/2009-04-04/invalid",
+		error:  "invalid metadata item",
+		result: "",
 	},
 	"invalid query (no subfilters)": {
-		query: "/2009-04-04/user-data/hostname",
-		error: "invalid metadata item",
+		url:    "/2009-04-04/user-data/hostname",
+		error:  "invalid metadata item",
+		result: "",
 	},
 }

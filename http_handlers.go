@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"sort"
 	"strings"
 	"time"
 
@@ -16,36 +15,32 @@ import (
 )
 
 var (
-	ec2Filters = map[string]interface{}{
-		"user-data": ".metadata.userdata",
-		"meta-data": map[string]interface{}{
-			"_base":       ".metadata.instance",
-			"instance-id": ".id",
-			"hostname":    ".hostname",
-			"iqn":         ".iqn",
-			"plan":        ".plan",
-			"facility":    ".facility",
-			"tags":        ".tags[]?",
-			"operating-system": map[string]interface{}{
-				"_base":   ".operating_system",
-				"slug":    ".slug",
-				"distro":  ".distro",
-				"version": ".version",
-				"license_activation": map[string]interface{}{
-					"_base": ".license_activation",
-					"state": ".state",
-				},
-				"image_tag": ".image_tag",
-			},
-			"public-keys": ".ssh_keys[]?",
-			"spot": map[string]interface{}{ // TODO (kdeng3849) need to check actual structure
-				"_base":            ".spot",
-				"termination-time": ".termination_time",
-			},
-			"public-ipv4": `.network.addresses[]? | select(.address_family == 4 and .public == true) | .address`,
-			"public-ipv6": `.network.addresses[]? | select(.address_family == 6 and .public == true) | .address`,
-			"local-ipv4":  `.network.addresses[]? | select(.address_family == 4 and .public == false) | .address`,
-		},
+	// ec2Filters defines the query pattern and filters for the EC2 endpoint
+	// for queries that are to return another list of metadata items, the "filter" is a static list of the metadata items
+	// for /meta-data, the "spot" metadata item will only show up when the instance is a spot instance (denoted by if the "spot" field inside hardware is nonnull)
+	ec2Filters = map[string]string{
+		"":                                    `"meta-data", "user-data"`,
+		"/user-data":                          ".metadata.userdata",
+		"/meta-data":                          `(if .metadata.instance.spot != null then ["spot"] else [] end) as $spot | ["instance-id", "hostname", "iqn", "plan", "facility", "tags", "operating-system", "public-keys", "public-ipv4", "public-ipv6", "local-ipv4"] | . + $spot | sort | .[]`,
+		"/meta-data/instance-id":              ".metadata.instance.id",
+		"/meta-data/hostname":                 ".metadata.instance.hostname",
+		"/meta-data/iqn":                      ".metadata.instance.iqn",
+		"/meta-data/plan":                     ".metadata.instance.plan",
+		"/meta-data/facility":                 ".metadata.instance.facility",
+		"/meta-data/tags":                     ".metadata.instance.tags[]?",
+		"/meta-data/operating-system":         `["slug", "distro", "version", "license_activation", "image_tag"] | sort | .[]`,
+		"/meta-data/operating-system/slug":    ".metadata.instance.operating_system.slug",
+		"/meta-data/operating-system/distro":  ".metadata.instance.operating_system.distro",
+		"/meta-data/operating-system/version": ".metadata.instance.operating_system.version",
+		"/meta-data/operating-system/license_activation":       `"state"`,
+		"/meta-data/operating-system/license_activation/state": ".metadata.instance.operating_system.license_activation.state",
+		"/meta-data/operating-system/image_tag":                ".metadata.instance.operating_system.image_tag",
+		"/meta-data/public-keys":                               ".metadata.instance.ssh_keys[]?",
+		"/meta-data/spot":                                      `"termination-time"`,
+		"/meta-data/spot/termination-time":                     ".metadata.instance.spot.termination_time",
+		"/meta-data/public-ipv4":                               ".metadata.instance.network.addresses[]? | select(.address_family == 4 and .public == true) | .address",
+		"/meta-data/public-ipv6":                               ".metadata.instance.network.addresses[]? | select(.address_family == 6 and .public == true) | .address",
+		"/meta-data/local-ipv4":                                ".metadata.instance.network.addresses[]? | select(.address_family == 4 and .public == false) | .address",
 	}
 )
 
@@ -160,7 +155,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := processEC2Query(r.URL.Path)
+	filter, err := processEC2Query(r.URL.Path)
 	if err != nil {
 		logger.Error(err)
 		w.WriteHeader(http.StatusNotFound)
@@ -168,41 +163,13 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logger.Error(err, "failed to write error response")
 		}
+		return
 	}
 
 	var resp []byte
-	if filter, ok := res.(string); ok {
-		resp, err = filterMetadata(hw, filter)
-		if err != nil {
-			logger.Error(err, "Error in filtering metadata: ")
-		}
-	} else if submenu, ok := res.(map[string]interface{}); ok {
-		var keys []string
-		for item := range submenu {
-			switch item {
-			case "_base": // _base is only used to keep track of the base filter, not a metadata item
-				continue
-			case "spot": // list only if instance is spot
-				spotFilter := submenu["_base"].(string) + submenu[item].(map[string]interface{})["_base"].(string)
-				resp, err := filterMetadata(hw, spotFilter) // ".metadata.instance.spot"
-				if err != nil {
-					logger.With("error", err).Info("error filtering metadata")
-				}
-				if string(resp) != "" {
-					keys = append(keys, item)
-				}
-			default:
-				keys = append(keys, item)
-			}
-		}
-		sort.Strings(keys)
-		for _, item := range keys {
-			resp = []byte(string(resp) + item + "\n")
-		}
-	} else {
-		logger.Error(err, "unexpected result from processEC2Query: result should just either be a string or a map")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+	resp, err = filterMetadata(hw, filter)
+	if err != nil {
+		logger.Error(err, "Error in filtering metadata: ")
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -214,37 +181,16 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 }
 
 // processEC2Query returns either a specific filter (used to parse hardware data for the value of a specific field),
-// or a map of filters (used for printing out its keys)
-func processEC2Query(query string) (interface{}, error) {
-	var result interface{} = ec2Filters
+// or a comma-separated list of metadata items (to be printed)
+func processEC2Query(url string) (string, error) {
+	query := strings.TrimRight(strings.TrimPrefix(url, "/2009-04-04"), "/") // remove base pattern and trailing slash
 
-	q := strings.Trim(strings.TrimPrefix(query, "/2009-04-04"), "/") // remove base pattern and extra slashes
-	if q == "" {                                                     // if query was just the base pattern
-		return result, nil
+	filter, ok := ec2Filters[query]
+	if !ok {
+		return "", errors.New("invalid metadata item")
 	}
-	accessors := strings.Split(q, "/")
 
-	var base string
-	for _, accessor := range accessors {
-		if accessor == "_base" {
-			return nil, errors.New("invalid metadata item")
-		}
-
-		var item interface{}
-		if filters, ok := result.(map[string]interface{}); ok {
-			item = filters[accessor] // either a filter or another (sub) map of filters
-		}
-
-		if filter, ok := item.(string); ok { // if is an actual filter
-			result = base + filter
-		} else if subfilters, ok := item.(map[string]interface{}); ok { // if is another map of filters
-			base = base + subfilters["_base"].(string)
-			result = subfilters
-		} else {
-			return nil, errors.New("invalid metadata item")
-		}
-	}
-	return result, nil
+	return filter, nil
 }
 
 func getIPFromRequest(r *http.Request) string {
