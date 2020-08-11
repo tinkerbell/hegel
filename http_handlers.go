@@ -16,12 +16,13 @@ import (
 
 var (
 	// ec2Filters defines the query pattern and filters for the EC2 endpoint
-	// for queries that are to return another list of metadata items, the "filter" is a static list of the metadata items
-	// for /meta-data, the "spot" metadata item will only show up when the instance is a spot instance (denoted by if the "spot" field inside hardware is nonnull)
+	// for queries that are to return another list of metadata items, the filter is a static list of the metadata items ("directory-listing filter")
+	// for /meta-data, the `spot` metadata item will only show up when the instance is a spot instance (denoted by if the `spot` field inside hardware is nonnull)
+	// NOTE: make sure when adding a new metadata item in a "subdirectory", to also add it to the directory-listing filter
 	ec2Filters = map[string]string{
-		"":                                    `"meta-data", "user-data"`,
+		"":                                    `"meta-data", "user-data"`, // base path
 		"/user-data":                          ".metadata.userdata",
-		"/meta-data":                          `(if .metadata.instance.spot != null then ["spot"] else [] end) as $spot | ["instance-id", "hostname", "iqn", "plan", "facility", "tags", "operating-system", "public-keys", "public-ipv4", "public-ipv6", "local-ipv4"] | . + $spot | sort | .[]`,
+		"/meta-data":                          `["instance-id", "hostname", "iqn", "plan", "facility", "tags", "operating-system", "public-keys", "public-ipv4", "public-ipv6", "local-ipv4"] + (if .metadata.instance.spot != null then ["spot"] else [] end) | sort | .[]`,
 		"/meta-data/instance-id":              ".metadata.instance.id",
 		"/meta-data/hostname":                 ".metadata.instance.hostname",
 		"/meta-data/iqn":                      ".metadata.instance.iqn",
