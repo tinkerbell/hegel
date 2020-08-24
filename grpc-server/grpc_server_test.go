@@ -1,4 +1,4 @@
-package main
+package grpcserver
 
 import (
 	"context"
@@ -19,11 +19,11 @@ func TestGetByIPCacher(t *testing.T) {
 		defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 		os.Unsetenv("DATA_MODEL_VERSION")
 
-		hegelTestServer := &server{
-			log:            logger,
-			hardwareClient: hardwareGetterMock{test.json},
+		hegelTestServer := &Server{
+			Log:            logger,
+			HardwareClient: hardwareGetterMock{test.json},
 		}
-		ehw, err := getByIP(context.Background(), hegelTestServer, mockUserIP) // returns hardware data as []byte
+		ehw, err := GetByIP(context.Background(), hegelTestServer, mockUserIP) // returns hardware data as []byte
 		if err != nil {
 			t.Fatal("unexpected error while getting hardware by ip:", err)
 		}
@@ -83,16 +83,16 @@ func TestGetByIPTinkerbell(t *testing.T) {
 	for name, test := range tinkerbellGrpcTests {
 		t.Log(name)
 
-		hegelTestServer := &server{
-			log:            logger,
-			hardwareClient: hardwareGetterMock{test.json},
+		hegelTestServer := &Server{
+			Log:            logger,
+			HardwareClient: hardwareGetterMock{test.json},
 		}
-		ehw, err := getByIP(context.Background(), hegelTestServer, mockUserIP) // returns hardware data as []byte
+		ehw, err := GetByIP(context.Background(), hegelTestServer, mockUserIP) // returns hardware data as []byte
 		if test.error != "" {
 			if err == nil {
-				t.Fatalf("getByIP should have returned error: %v", test.error)
+				t.Fatalf("GetByIP should have returned error: %v", test.error)
 			} else if err.Error() != test.error {
-				t.Fatalf("getByIP returned wrong error: got %v want %v", err, test.error)
+				t.Fatalf("GetByIP returned wrong error: got %v want %v", err, test.error)
 			}
 		}
 
@@ -152,17 +152,17 @@ func TestFilterMetadata(t *testing.T) {
 	for name, test := range tinkerbellFilterMetadataTests {
 		t.Run(name, func(t *testing.T) {
 
-			res, err := filterMetadata([]byte(test.json), test.filter)
+			res, err := FilterMetadata([]byte(test.json), test.filter)
 			if test.error != "" {
 				if err == nil {
-					t.Errorf("filterMetadata should have returned error: %v", test.error)
+					t.Errorf("FilterMetadata should have returned error: %v", test.error)
 				} else if err.Error() != test.error {
-					t.Errorf("filterMetadata returned wrong error: got %v want %v", err, test.error)
+					t.Errorf("FilterMetadata returned wrong error: got %v want %v", err, test.error)
 				}
 			}
 
 			if string(res) != test.result {
-				t.Errorf("filterMetadata returned wrong result: got %s want %v", res, test.result)
+				t.Errorf("FilterMetadata returned wrong result: got %s want %v", res, test.result)
 			}
 		})
 	}

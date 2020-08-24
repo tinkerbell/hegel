@@ -1,4 +1,4 @@
-package main
+package httpserver
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	grpcserver "github.com/packethost/hegel/grpc-server"
 	"github.com/packethost/hegel/metrics"
 )
 
@@ -102,7 +103,7 @@ func getMetadata(filter string) http.HandlerFunc {
 		metrics.MetadataRequests.Inc()
 		l := logger.With("userIP", userIP)
 		l.Info("got ip from request")
-		hw, err := getByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
+		hw, err := grpcserver.GetByIP(context.Background(), grpcserver.HegelServer, userIP) // returns hardware data as []byte
 		if err != nil {
 			metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
 			l.With("error", err).Info("failed to get hardware by ip")
@@ -114,14 +115,14 @@ func getMetadata(filter string) http.HandlerFunc {
 		dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 		switch dataModelVersion {
 		case "":
-			resp, err = exportHardware(hw) // in cacher mode, the "filter" is the exportedHardwareCacher type
+			resp, err = grpcserver.ExportHardware(hw) // in cacher mode, the "filter" is the exportedHardwareCacher type
 			if err != nil {
 				l.With("error", err).Info("failed to export hardware")
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 		case "1":
-			resp, err = filterMetadata(hw, filter)
+			resp, err = grpcserver.FilterMetadata(hw, filter)
 			if err != nil {
 				l.With("error", err).Info("failed to filter metadata")
 				w.WriteHeader(http.StatusInternalServerError)
@@ -157,7 +158,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 	metrics.MetadataRequests.Inc()
 	l := logger.With("userIP", userIP)
 	l.Info("got ip from request")
-	hw, err := getByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
+	hw, err := grpcserver.GetByIP(context.Background(), grpcserver.HegelServer, userIP) // returns hardware data as []byte
 	if err != nil {
 		metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
 		l.With("error", err).Info("failed to get hardware by ip")
@@ -177,7 +178,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resp []byte
-	resp, err = filterMetadata(hw, filter)
+	resp, err = grpcserver.FilterMetadata(hw, filter)
 	if err != nil {
 		l.With("error", err).Info("failed to filter metadata")
 	}
@@ -245,12 +246,12 @@ func handleSubscriptions(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/subscriptions/") {
 		getid = strings.TrimPrefix(r.URL.Path, "/subscriptions/")
 	}
-	hegelServer.subLock.RLock()
-	defer hegelServer.subLock.RUnlock()
+	grpcserver.HegelServer.SubLock.RLock()
+	defer grpcserver.HegelServer.SubLock.RUnlock()
 	var err error
 	if getid == "" {
-		err = writeJSON(w, http.StatusOK, hegelServer.subscriptions)
-	} else if sub, ok := hegelServer.subscriptions[getid]; ok {
+		err = writeJSON(w, http.StatusOK, grpcserver.HegelServer.Subscriptions)
+	} else if sub, ok := grpcserver.HegelServer.Subscriptions[getid]; ok {
 		err = writeJSON(w, http.StatusOK, sub)
 	} else {
 		err = jsonError(w, http.StatusNotFound, fmt.Errorf("%s not found", getid), "item not found")
@@ -260,7 +261,7 @@ func handleSubscriptions(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func buildSubscriberHandlers(hegelServer *server) {
+func buildSubscriberHandlers(hegelServer *grpcserver.Server) {
 	http.HandleFunc("/subscriptions", handleSubscriptions)
 	http.HandleFunc("/subscriptions/", handleSubscriptions)
 }

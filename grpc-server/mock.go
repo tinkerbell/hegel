@@ -1,13 +1,12 @@
-package main
+package grpcserver
 
 import (
 	"context"
 	"encoding/json"
 	"os"
 
-	tink "github.com/tinkerbell/tink/protos/hardware"
-
 	"github.com/packethost/cacher/protos/cacher"
+	tink "github.com/tinkerbell/tink/protos/hardware"
 	"google.golang.org/grpc"
 )
 

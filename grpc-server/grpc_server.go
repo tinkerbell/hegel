@@ -1,31 +1,121 @@
-package main
+package grpcserver
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
+	"fmt"
 	"io"
 	"net"
 	"os"
+	"sync"
 	"time"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/itchyny/gojq"
-	"github.com/tinkerbell/tink/util"
-
+	cacherClient "github.com/packethost/cacher/client"
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/packethost/hegel/grpc/hegel"
 	"github.com/packethost/hegel/metrics"
+	"github.com/packethost/hegel/xff"
+	"github.com/packethost/pkg/env"
+	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	tinkClient "github.com/tinkerbell/tink/client"
 	tink "github.com/tinkerbell/tink/protos/hardware"
+	"github.com/tinkerbell/tink/util"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
 
-//go:generate protoc -I grpc/protos grpc/protos/hegel.proto --go_out=plugins=grpc:grpc/hegel
+var (
+	facility = flag.String("facility", env.Get("HEGEL_FACILITY", "onprem"),
+		"The facility we are running in (mostly to connect to cacher)")
+	tlsCertPath = flag.String("tls_cert", env.Get("HEGEL_TLS_CERT"),
+		"Path of tls certificat to use.")
+	tlsKeyPath = flag.String("tls_key", env.Get("HEGEL_TLS_KEY"),
+		"Path of tls key to use.")
+	useTLS = flag.Bool("use_tls", env.Bool("HEGEL_USE_TLS", true),
+		"Whether we should use tls or not (should be disabled for traefik)")
+	StartTime           = time.Now()
+	HegelServer         *Server
+	isCacherAvailableMu sync.RWMutex
+	isCacherAvailable   bool
+)
 
+type Server struct {
+	Log            log.Logger
+	HardwareClient HardwareGetter
+
+	SubLock       sync.RWMutex
+	Subscriptions map[string]*subscription
+}
+
+type HardwareGetter interface {
+	ByIP(ctx context.Context, in getRequest, opts ...grpc.CallOption) (hardware, error)
+	Watch(ctx context.Context, in getRequest, opts ...grpc.CallOption) (watchClient, error)
+}
+
+type getRequest interface{}
+type hardware interface{}
 type watchClient interface{}
+
+type subscription struct {
+	ID           string        `json:"id"`
+	IP           string        `json:"ip"`
+	InitDuration time.Duration `json:"init_duration"`
+	StartedAt    time.Time     `json:"started_at"`
+	cancel       func()
+	updateChan   chan []byte
+}
+
+type hardwareGetterCacher struct {
+	client cacher.CacherClient
+}
+
+type hardwareGetterTinkerbell struct {
+	client tink.HardwareServiceClient
+}
+
+func (hg hardwareGetterCacher) ByIP(ctx context.Context, in getRequest, opts ...grpc.CallOption) (hardware, error) {
+	hw, err := hg.client.ByIP(ctx, in.(*cacher.GetRequest), opts...)
+	if err != nil {
+		return nil, err
+	}
+	return hw, nil
+}
+
+func (hg hardwareGetterCacher) Watch(ctx context.Context, in getRequest, opts ...grpc.CallOption) (watchClient, error) {
+	w, err := hg.client.Watch(ctx, in.(*cacher.GetRequest), opts...)
+	if err != nil {
+		return nil, err
+	}
+	return w, nil
+}
+
+func (hg hardwareGetterTinkerbell) ByIP(ctx context.Context, in getRequest, opts ...grpc.CallOption) (hardware, error) {
+	hw, err := hg.client.ByIP(ctx, in.(*tink.GetRequest), opts...)
+	if err != nil {
+		return nil, err
+	}
+	return hw, nil
+}
+
+func (hg hardwareGetterTinkerbell) Watch(ctx context.Context, in getRequest, opts ...grpc.CallOption) (watchClient, error) {
+	w, err := hg.client.Watch(ctx, in.(*tink.GetRequest), opts...)
+	if err != nil {
+		return nil, err
+	}
+	return w, nil
+}
+
+//go:generate protoc -I grpc/protos grpc/protos/hegel.proto --go_out=plugins=grpc:grpc/hegel
 
 // exportedHardwareCacher is the structure in which hegel returns to clients using the old cacher data model
 // exposes only certain fields of the hardware data returned by cacher
@@ -119,8 +209,121 @@ type storage struct {
 	Filesystems []*filesystem `json:"filesystems,omitempty"`
 }
 
+func Serve(ctx context.Context, l log.Logger) error {
+	port := env.Int("GRPC_PORT", 42115)
+
+	serverOpts := make([]grpc.ServerOption, 0)
+
+	// setup tls credentials
+	if *useTLS {
+		creds, err := credentials.NewServerTLSFromFile(*tlsCertPath, *tlsKeyPath)
+		if err != nil {
+			l.Error(err, "failed to initialize server credentials")
+			panic(err)
+		}
+		serverOpts = append(serverOpts, grpc.Creds(creds))
+	}
+
+	trustedProxies := xff.ParseTrustedProxies()
+	xffStream, xffUnary := xff.GRPCMiddlewares(l, trustedProxies)
+	streamLogger, unaryLogger := l.GRPCLoggers()
+	serverOpts = append(serverOpts,
+		grpc_middleware.WithUnaryServerChain(
+			xffUnary,
+			unaryLogger,
+			grpc_prometheus.UnaryServerInterceptor,
+		),
+		grpc_middleware.WithStreamServerChain(
+			xffStream,
+			streamLogger,
+			grpc_prometheus.StreamServerInterceptor,
+		),
+	)
+
+	var hg HardwareGetter
+	dataModelVersion := env.Get("DATA_MODEL_VERSION")
+	switch dataModelVersion {
+	case "1":
+		tc, err := tinkClient.TinkHardwareClient()
+		if err != nil {
+			l.Fatal(err, "Failed to create the tink client")
+		}
+		hg = hardwareGetterTinkerbell{tc}
+		// add health check for tink?
+	default:
+		cc, err := cacherClient.New(*facility)
+		if err != nil {
+			l.Fatal(err, "Failed to create the cacher client")
+		}
+		hg = hardwareGetterCacher{cc}
+		go func() {
+			c := time.Tick(15 * time.Second)
+			for range c {
+				// Get All hardware as a proxy for a healthcheck
+				// TODO (patrickdevivo) until Cacher gets a proper healthcheck RPC
+				// a la https://github.com/grpc/grpc/blob/master/doc/health-checking.md
+				// this will have to do.
+				// Note that we don't do anything with the stream (we don't read from it)
+				var isCacherAvailableTemp bool
+				ctx, cancel := context.WithCancel(context.Background())
+				_, err := cc.All(ctx, &cacher.Empty{})
+				if err == nil {
+					isCacherAvailableTemp = true
+				}
+				cancel()
+
+				isCacherAvailableMu.Lock()
+				isCacherAvailable = isCacherAvailableTemp
+				isCacherAvailableMu.Unlock()
+
+				if isCacherAvailableTemp {
+					metrics.CacherConnected.Set(1)
+					metrics.CacherHealthcheck.WithLabelValues("true").Inc()
+					l.With("status", isCacherAvailableTemp).Debug("tick")
+				} else {
+					metrics.CacherConnected.Set(0)
+					metrics.CacherHealthcheck.WithLabelValues("false").Inc()
+					metrics.Errors.WithLabelValues("cacher", "healthcheck").Inc()
+					l.With("status", isCacherAvailableTemp).Error(err)
+				}
+			}
+
+		}()
+	}
+
+	grpcServer := grpc.NewServer(serverOpts...)
+
+	// Register grpc prometheus server
+	grpc_prometheus.Register(grpcServer)
+
+	HegelServer = &Server{
+		Log:            l,
+		HardwareClient: hg,
+		Subscriptions:  make(map[string]*subscription),
+	}
+
+	hegel.RegisterHegelServer(grpcServer, HegelServer)
+
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		err = errors.Wrap(err, "failed to listen")
+		l.Error(err)
+		panic(err)
+	}
+
+	metrics.State.Set(metrics.Ready)
+	//Serving GRPC
+	l.Info("serving grpc")
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		l.Fatal(err, "Failed to serve  grpc")
+	}
+
+	return nil
+}
+
 // exportedHardware transforms hardware that is returned from cacher into what we want to expose to clients
-func exportHardware(hw []byte) ([]byte, error) {
+func ExportHardware(hw []byte) ([]byte, error) {
 	exported := &exportedHardwareCacher{}
 
 	err := json.Unmarshal(hw, exported)
@@ -130,7 +333,7 @@ func exportHardware(hw []byte) ([]byte, error) {
 	return json.Marshal(exported)
 }
 
-func filterMetadata(hw []byte, filter string) ([]byte, error) {
+func FilterMetadata(hw []byte, filter string) ([]byte, error) {
 	var result bytes.Buffer
 	query, err := gojq.Parse(filter)
 	if err != nil {
@@ -189,19 +392,19 @@ func (eh *exportedHardwareCacher) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (s *server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetResponse, error) {
+func (s *Server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetResponse, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
 		return nil, errors.New("could not get peer info from client")
 	}
-	s.log.With("client", p.Addr, "op", "get").Info()
+	s.Log.With("client", p.Addr, "op", "get").Info()
 	userIP := p.Addr.(*net.TCPAddr).IP.String()
 
-	hw, err := getByIP(ctx, s, userIP)
+	hw, err := GetByIP(ctx, s, userIP)
 	if err != nil {
 		return nil, err
 	}
-	ehw, err := exportHardware(hw)
+	ehw, err := ExportHardware(hw)
 	if err != nil {
 		return nil, err
 	}
@@ -210,13 +413,13 @@ func (s *server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetRespo
 	}, nil
 }
 
-func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_SubscribeServer) error {
+func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_SubscribeServer) error {
 	startedAt := time.Now().UTC()
 	metrics.TotalSubscriptions.Inc()
 	metrics.Subscriptions.WithLabelValues("initializing").Inc()
 	timer := prometheus.NewTimer(metrics.InitDuration)
 
-	logger := s.log.With("op", "subscribe")
+	logger := s.Log.With("op", "subscribe")
 
 	initError := func(err error) error {
 		logger.Error(err)
@@ -243,7 +446,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
 	case "1":
-		hw, err := s.hardwareClient.ByIP(stream.Context(), &tink.GetRequest{
+		hw, err := s.HardwareClient.ByIP(stream.Context(), &tink.GetRequest{
 			Ip: ip,
 		})
 
@@ -254,7 +457,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		id = hw.(*tink.Hardware).Id
 
 		ctx, cancel = context.WithCancel(stream.Context())
-		watch, err = s.hardwareClient.Watch(ctx, &tink.GetRequest{
+		watch, err = s.HardwareClient.Watch(ctx, &tink.GetRequest{
 			Id: id,
 		})
 
@@ -263,7 +466,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 			return initError(err)
 		}
 	default:
-		hw, err := s.hardwareClient.ByIP(stream.Context(), &cacher.GetRequest{
+		hw, err := s.HardwareClient.ByIP(stream.Context(), &cacher.GetRequest{
 			IP: ip,
 		})
 
@@ -281,7 +484,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		id = hwID.(string)
 
 		ctx, cancel = context.WithCancel(stream.Context())
-		watch, err = s.hardwareClient.Watch(ctx, &cacher.GetRequest{
+		watch, err = s.HardwareClient.Watch(ctx, &cacher.GetRequest{
 			ID: id,
 		})
 
@@ -300,10 +503,10 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		updateChan:   make(chan []byte, 1),
 	}
 
-	s.subLock.Lock()
-	old := s.subscriptions[id]
-	s.subscriptions[id] = sub
-	s.subLock.Unlock()
+	s.SubLock.Lock()
+	old := s.Subscriptions[id]
+	s.Subscriptions[id] = sub
+	s.SubLock.Unlock()
 
 	// Disconnect previous client if a client is already connected for this hardware id
 	if old != nil {
@@ -311,12 +514,12 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	}
 
 	defer func() {
-		s.subLock.Lock()
-		defer s.subLock.Unlock()
+		s.SubLock.Lock()
+		defer s.SubLock.Unlock()
 		// Check if subscription for hardware id exists.
 		// If the subscriptions exists, make sure it has not been replaced by a new connection.
-		if cSub := s.subscriptions[id]; cSub == sub {
-			delete(s.subscriptions, id)
+		if cSub := s.Subscriptions[id]; cSub == sub {
+			delete(s.Subscriptions, id)
 		}
 	}()
 
@@ -371,7 +574,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 				hw = []byte(resp.JSON)
 			}
 
-			ehw, err := exportHardware(hw)
+			ehw, err := ExportHardware(hw)
 			if err != nil {
 				errs <- err
 				close(sub.updateChan)
@@ -405,7 +608,7 @@ func (s *server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	return activeError(retErr)
 }
 
-func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
+func GetByIP(ctx context.Context, s *Server, userIP string) ([]byte, error) {
 
 	var hw []byte
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
@@ -414,7 +617,7 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 		req := &tink.GetRequest{
 			Ip: userIP,
 		}
-		resp, err := s.hardwareClient.ByIP(ctx, req)
+		resp, err := s.HardwareClient.ByIP(ctx, req)
 
 		if err != nil {
 			return nil, err
@@ -433,7 +636,7 @@ func getByIP(ctx context.Context, s *server, userIP string) ([]byte, error) {
 		req := &cacher.GetRequest{
 			IP: userIP,
 		}
-		resp, err := s.hardwareClient.ByIP(ctx, req)
+		resp, err := s.HardwareClient.ByIP(ctx, req)
 
 		if err != nil {
 			return nil, err
