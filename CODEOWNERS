@@ -1,6 +1,9 @@
-# These owners will be the default owners for everything in the repo. They
-# will be requested for review when someone opens a pull request.
-# We call those people maintainers as well
+# See [OWNERS.md](https://github.com/tinkerbell/.github/blob/master/OWNERS.md)
+# for clarity on the responsibilities of the CODEOWNERS.
+#
+# This "*" assignment defines the users that will be notified on all pull
+# requests.
 
+*   @tinkerbell/site-eng
 *   @displague
 
