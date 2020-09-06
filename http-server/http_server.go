@@ -21,7 +21,7 @@ var (
 	metricsPort = flag.Int("http_port", env.Int("HEGEL_HTTP_PORT", 50061),
 		"Port to liten on http")
 	customEndpoints     string
-	gitRev              string = "undefind"
+	gitRev              string
 	gitRevJSON          []byte
 	logger              log.Logger
 	isCacherAvailableMu sync.RWMutex
@@ -29,8 +29,9 @@ var (
 	StartTime           time.Time
 )
 
-func Serve(ctx context.Context, l log.Logger, gitRev string, time time.Time) error {
+func Serve(ctx context.Context, l log.Logger, gRev string, time time.Time) error {
 	StartTime = time
+	gitRev = gRev
 	logger = l
 
 	mux := &http.ServeMux{}

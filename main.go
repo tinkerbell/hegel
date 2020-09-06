@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	gitRev string = "undefind"
+	GitRev string
 	logger log.Logger
 )
 
@@ -41,7 +41,7 @@ func main() {
 	var once sync.Once
 	var wg sync.WaitGroup
 	runGoroutine(&ret, cancel, &once, &wg, func() error {
-		return httpserver.Serve(ctx, l, gitRev, time.Now())
+		return httpserver.Serve(ctx, l, GitRev, time.Now())
 	})
 	runGoroutine(&ret, cancel, &once, &wg, func() error {
 		return grpcserver.Serve(ctx, l)
