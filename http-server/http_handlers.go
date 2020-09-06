@@ -17,11 +17,11 @@ import (
 )
 
 var (
-	// ec2Filters defines the query pattern and filters for the EC2 endpoint
+	// Ec2Filters defines the query pattern and filters for the EC2 endpoint
 	// for queries that are to return another list of metadata items, the filter is a static list of the metadata items ("directory-listing filter")
 	// for /meta-data, the `spot` metadata item will only show up when the instance is a spot instance (denoted by if the `spot` field inside hardware is nonnull)
 	// NOTE: make sure when adding a new metadata item in a "subdirectory", to also add it to the directory-listing filter
-	ec2Filters = map[string]string{
+	Ec2Filters = map[string]string{
 		"":                                    `"meta-data", "user-data"`, // base path
 		"/user-data":                          ".metadata.userdata",
 		"/meta-data":                          `["instance-id", "hostname", "iqn", "plan", "facility", "tags", "operating-system", "public-keys", "public-ipv4", "public-ipv6", "local-ipv4"] + (if .metadata.instance.spot != null then ["spot"] else [] end) | sort | .[]`,
@@ -196,7 +196,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 func processEC2Query(url string) (string, error) {
 	query := strings.TrimRight(strings.TrimPrefix(url, "/2009-04-04"), "/") // remove base pattern and trailing slash
 
-	filter, ok := ec2Filters[query]
+	filter, ok := Ec2Filters[query]
 	if !ok {
 		return "", errors.New("invalid metadata item")
 	}

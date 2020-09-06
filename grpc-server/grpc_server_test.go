@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	httpserver "github.com/packethost/hegel/http-server"
 	"os"
 	"reflect"
 	"testing"
@@ -252,25 +253,25 @@ var tinkerbellFilterMetadataTests = map[string]struct {
 	json   string
 }{
 	"single result (simple)": {
-		filter: ec2Filters["/user-data"],
+		filter: httpserver.Ec2Filters["/user-data"],
 		result: `#!/bin/bash
 
 echo "Hello world!"`,
 		json: tinkerbellFilterMetadata,
 	},
 	"single result (complex)": {
-		filter: ec2Filters["/meta-data/public-ipv4"],
+		filter: httpserver.Ec2Filters["/meta-data/public-ipv4"],
 		result: "139.175.86.114",
 		json:   tinkerbellFilterMetadata,
 	},
 	"multiple results (separated list results from hardware)": {
-		filter: ec2Filters["/meta-data/tags"],
+		filter: httpserver.Ec2Filters["/meta-data/tags"],
 		result: `hello
 test`,
 		json: tinkerbellFilterMetadata,
 	},
 	"multiple results (separated list results from filter)": {
-		filter: ec2Filters["/meta-data/operating-system"],
+		filter: httpserver.Ec2Filters["/meta-data/operating-system"],
 		result: `distro
 image_tag
 license_activation
@@ -279,7 +280,7 @@ version`,
 		json: tinkerbellFilterMetadata,
 	},
 	"multiple results (/meta-data filter with spot field present)": {
-		filter: ec2Filters["/meta-data"],
+		filter: httpserver.Ec2Filters["/meta-data"],
 		result: `facility
 hostname
 instance-id
