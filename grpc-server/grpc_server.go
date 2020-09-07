@@ -13,7 +13,6 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	cacherClient "github.com/packethost/cacher/client"
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/packethost/hegel/grpc/hegel"
 	"github.com/packethost/hegel/metrics"
@@ -22,7 +21,6 @@ import (
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	tinkClient "github.com/tinkerbell/tink/client"
 	tink "github.com/tinkerbell/tink/protos/hardware"
 	"github.com/tinkerbell/tink/util"
 	"google.golang.org/grpc"
@@ -35,18 +33,12 @@ import (
 //go:generate protoc -I grpc/protos grpc/protos/hegel.proto --go_out=plugins=grpc:grpc/hegel
 
 var (
-	facility = flag.String("facility", env.Get("HEGEL_FACILITY", "onprem"),
-		"The facility we are running in (mostly to connect to cacher)")
 	tlsCertPath = flag.String("tls_cert", env.Get("HEGEL_TLS_CERT"),
 		"Path of tls certificat to use.")
 	tlsKeyPath = flag.String("tls_key", env.Get("HEGEL_TLS_KEY"),
 		"Path of tls key to use.")
 	useTLS = flag.Bool("use_tls", env.Bool("HEGEL_USE_TLS", true),
 		"Whether we should use tls or not (should be disabled for traefik)")
-	StartTime           = time.Now()
-	HegelServer         *Server
-	isCacherAvailableMu sync.RWMutex
-	isCacherAvailable   bool
 )
 
 type Server struct {
@@ -54,19 +46,19 @@ type Server struct {
 	HardwareClient HardwareGetter
 
 	SubLock       sync.RWMutex
-	Subscriptions map[string]*subscription
+	Subscriptions map[string]*Subscription
 }
 
 type HardwareGetter interface {
-	ByIP(ctx context.Context, in getRequest, opts ...grpc.CallOption) (hardware, error)
-	Watch(ctx context.Context, in getRequest, opts ...grpc.CallOption) (watchClient, error)
+	ByIP(ctx context.Context, in GetRequest, opts ...grpc.CallOption) (Hardware, error)
+	Watch(ctx context.Context, in GetRequest, opts ...grpc.CallOption) (WatchClient, error)
 }
 
-type getRequest interface{}
-type hardware interface{}
-type watchClient interface{}
+type GetRequest interface{}
+type Hardware interface{}
+type WatchClient interface{}
 
-type subscription struct {
+type Subscription struct {
 	ID           string        `json:"id"`
 	IP           string        `json:"ip"`
 	InitDuration time.Duration `json:"init_duration"`
@@ -75,40 +67,40 @@ type subscription struct {
 	updateChan   chan []byte
 }
 
-type hardwareGetterCacher struct {
-	client cacher.CacherClient
+type HardwareGetterCacher struct {
+	Client cacher.CacherClient
 }
 
-type hardwareGetterTinkerbell struct {
-	client tink.HardwareServiceClient
+type HardwareGetterTinkerbell struct {
+	Client tink.HardwareServiceClient
 }
 
-func (hg hardwareGetterCacher) ByIP(ctx context.Context, in getRequest, opts ...grpc.CallOption) (hardware, error) {
-	hw, err := hg.client.ByIP(ctx, in.(*cacher.GetRequest), opts...)
+func (hg HardwareGetterCacher) ByIP(ctx context.Context, in GetRequest, opts ...grpc.CallOption) (Hardware, error) {
+	hw, err := hg.Client.ByIP(ctx, in.(*cacher.GetRequest), opts...)
 	if err != nil {
 		return nil, err
 	}
 	return hw, nil
 }
 
-func (hg hardwareGetterCacher) Watch(ctx context.Context, in getRequest, opts ...grpc.CallOption) (watchClient, error) {
-	w, err := hg.client.Watch(ctx, in.(*cacher.GetRequest), opts...)
+func (hg HardwareGetterCacher) Watch(ctx context.Context, in GetRequest, opts ...grpc.CallOption) (WatchClient, error) {
+	w, err := hg.Client.Watch(ctx, in.(*cacher.GetRequest), opts...)
 	if err != nil {
 		return nil, err
 	}
 	return w, nil
 }
 
-func (hg hardwareGetterTinkerbell) ByIP(ctx context.Context, in getRequest, opts ...grpc.CallOption) (hardware, error) {
-	hw, err := hg.client.ByIP(ctx, in.(*tink.GetRequest), opts...)
+func (hg HardwareGetterTinkerbell) ByIP(ctx context.Context, in GetRequest, opts ...grpc.CallOption) (Hardware, error) {
+	hw, err := hg.Client.ByIP(ctx, in.(*tink.GetRequest), opts...)
 	if err != nil {
 		return nil, err
 	}
 	return hw, nil
 }
 
-func (hg hardwareGetterTinkerbell) Watch(ctx context.Context, in getRequest, opts ...grpc.CallOption) (watchClient, error) {
-	w, err := hg.client.Watch(ctx, in.(*tink.GetRequest), opts...)
+func (hg HardwareGetterTinkerbell) Watch(ctx context.Context, in GetRequest, opts ...grpc.CallOption) (WatchClient, error) {
+	w, err := hg.Client.Watch(ctx, in.(*tink.GetRequest), opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +199,7 @@ type storage struct {
 	Filesystems []*filesystem `json:"filesystems,omitempty"`
 }
 
-func Serve(ctx context.Context, l log.Logger) error {
+func Serve(ctx context.Context, l log.Logger, srv *Server) error {
 	port := env.Int("GRPC_PORT", 42115)
 
 	serverOpts := make([]grpc.ServerOption, 0)
@@ -238,69 +230,12 @@ func Serve(ctx context.Context, l log.Logger) error {
 		),
 	)
 
-	var hg HardwareGetter
-	dataModelVersion := env.Get("DATA_MODEL_VERSION")
-	switch dataModelVersion {
-	case "1":
-		tc, err := tinkClient.TinkHardwareClient()
-		if err != nil {
-			l.Fatal(err, "Failed to create the tink client")
-		}
-		hg = hardwareGetterTinkerbell{tc}
-		// add health check for tink?
-	default:
-		cc, err := cacherClient.New(*facility)
-		if err != nil {
-			l.Fatal(err, "Failed to create the cacher client")
-		}
-		hg = hardwareGetterCacher{cc}
-		go func() {
-			c := time.Tick(15 * time.Second)
-			for range c {
-				// Get All hardware as a proxy for a healthcheck
-				// TODO (patrickdevivo) until Cacher gets a proper healthcheck RPC
-				// a la https://github.com/grpc/grpc/blob/master/doc/health-checking.md
-				// this will have to do.
-				// Note that we don't do anything with the stream (we don't read from it)
-				var isCacherAvailableTemp bool
-				ctx, cancel := context.WithCancel(context.Background())
-				_, err := cc.All(ctx, &cacher.Empty{})
-				if err == nil {
-					isCacherAvailableTemp = true
-				}
-				cancel()
-
-				isCacherAvailableMu.Lock()
-				isCacherAvailable = isCacherAvailableTemp
-				isCacherAvailableMu.Unlock()
-
-				if isCacherAvailableTemp {
-					metrics.CacherConnected.Set(1)
-					metrics.CacherHealthcheck.WithLabelValues("true").Inc()
-					l.With("status", isCacherAvailableTemp).Debug("tick")
-				} else {
-					metrics.CacherConnected.Set(0)
-					metrics.CacherHealthcheck.WithLabelValues("false").Inc()
-					metrics.Errors.WithLabelValues("cacher", "healthcheck").Inc()
-					l.With("status", isCacherAvailableTemp).Error(err)
-				}
-			}
-
-		}()
-	}
-
 	grpcServer := grpc.NewServer(serverOpts...)
 
 	// Register grpc prometheus server
 	grpc_prometheus.Register(grpcServer)
 
-	HegelServer = &Server{
-		Log:            l,
-		HardwareClient: hg,
-		Subscriptions:  make(map[string]*subscription),
-	}
-
-	hegel.RegisterHegelServer(grpcServer, HegelServer)
+	hegel.RegisterHegelServer(grpcServer, srv)
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -398,7 +333,7 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 
 	logger.Info()
 
-	var watch watchClient
+	var watch WatchClient
 	var ctx context.Context
 	var cancel context.CancelFunc
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
@@ -452,7 +387,7 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		}
 	}
 
-	sub := &subscription{
+	sub := &Subscription{
 		ID:           id,
 		IP:           ip,
 		StartedAt:    startedAt,

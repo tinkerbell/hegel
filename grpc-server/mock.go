@@ -21,8 +21,8 @@ type hardwareGetterMock struct {
 // having to parse the (mock) hardware data `hardwareResp`, the process has been simplified to only match with the constant `MockUserIP`.
 // Given any other IP inside the get request, ByIP will return an empty piece of hardware regardless of whether or not the IP
 // actually matches the IP inside `hardwareResp`.
-func (hg hardwareGetterMock) ByIP(ctx context.Context, in getRequest, opts ...grpc.CallOption) (hardware, error) {
-	var hw hardware
+func (hg hardwareGetterMock) ByIP(ctx context.Context, in GetRequest, opts ...grpc.CallOption) (Hardware, error) {
+	var hw Hardware
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
 	case "1":
@@ -49,7 +49,7 @@ func (hg hardwareGetterMock) ByIP(ctx context.Context, in getRequest, opts ...gr
 	return hw, nil
 }
 
-func (hg hardwareGetterMock) Watch(ctx context.Context, in getRequest, opts ...grpc.CallOption) (watchClient, error) {
+func (hg hardwareGetterMock) Watch(ctx context.Context, in GetRequest, opts ...grpc.CallOption) (WatchClient, error) {
 	// TODO (kdeng3849)
 	return nil, nil
 }

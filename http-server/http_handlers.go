@@ -58,9 +58,9 @@ func versionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	isCacherAvailableMu.RLock()
-	isCacherAvailableTemp := isCacherAvailable
-	isCacherAvailableMu.RUnlock()
+	IsCacherAvailableMu.RLock()
+	isCacherAvailableTemp := IsCacherAvailable
+	IsCacherAvailableMu.RUnlock()
 
 	res := struct {
 		GitRev          string  `json:"git_rev"`
@@ -105,7 +105,7 @@ func getMetadata(filter string) http.HandlerFunc {
 		metrics.MetadataRequests.Inc()
 		l := logger.With("userIP", userIP)
 		l.Info("got ip from request")
-		hw, err := grpcserver.GetByIP(context.Background(), grpcserver.HegelServer, userIP) // returns hardware data as []byte
+		hw, err := grpcserver.GetByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
 		if err != nil {
 			metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
 			l.With("error", err).Info("failed to get hardware by ip")
@@ -160,7 +160,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 	metrics.MetadataRequests.Inc()
 	l := logger.With("userIP", userIP)
 	l.Info("got ip from request")
-	hw, err := grpcserver.GetByIP(context.Background(), grpcserver.HegelServer, userIP) // returns hardware data as []byte
+	hw, err := grpcserver.GetByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
 	if err != nil {
 		metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
 		l.With("error", err).Info("failed to get hardware by ip")
@@ -288,12 +288,12 @@ func handleSubscriptions(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/subscriptions/") {
 		getid = strings.TrimPrefix(r.URL.Path, "/subscriptions/")
 	}
-	grpcserver.HegelServer.SubLock.RLock()
-	defer grpcserver.HegelServer.SubLock.RUnlock()
+	hegelServer.SubLock.RLock()
+	defer hegelServer.SubLock.RUnlock()
 	var err error
 	if getid == "" {
-		err = writeJSON(w, http.StatusOK, grpcserver.HegelServer.Subscriptions)
-	} else if sub, ok := grpcserver.HegelServer.Subscriptions[getid]; ok {
+		err = writeJSON(w, http.StatusOK, hegelServer.Subscriptions)
+	} else if sub, ok := hegelServer.Subscriptions[getid]; ok {
 		err = writeJSON(w, http.StatusOK, sub)
 	} else {
 		err = jsonError(w, http.StatusNotFound, fmt.Errorf("%s not found", getid), "item not found")

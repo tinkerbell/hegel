@@ -18,21 +18,23 @@ import (
 )
 
 var (
-	metricsPort = flag.Int("http_port", env.Int("HEGEL_HTTP_PORT", 50061),
-		"Port to liten on http")
-	customEndpoints     string
-	gitRev              string
-	gitRevJSON          []byte
-	logger              log.Logger
-	isCacherAvailableMu sync.RWMutex
-	isCacherAvailable   bool
+	IsCacherAvailableMu sync.RWMutex
+	IsCacherAvailable   bool
 	StartTime           time.Time
+	metricsPort         = flag.Int("http_port", env.Int("HEGEL_HTTP_PORT", 50061),
+		"Port to liten on http")
+	customEndpoints string
+	gitRev          string
+	gitRevJSON      []byte
+	logger          log.Logger
+	hegelServer     *grpcserver.Server
 )
 
-func Serve(ctx context.Context, l log.Logger, gRev string, time time.Time) error {
+func Serve(ctx context.Context, l log.Logger, srv *grpcserver.Server, gRev string, time time.Time) error {
 	StartTime = time
 	gitRev = gRev
 	logger = l
+	hegelServer = srv
 
 	mux := &http.ServeMux{}
 	mux.Handle("/metrics", promhttp.Handler())
@@ -41,7 +43,7 @@ func Serve(ctx context.Context, l log.Logger, gRev string, time time.Time) error
 	mux.HandleFunc("/2009-04-04", ec2Handler) // workaround for making trailing slash optional
 	mux.HandleFunc("/2009-04-04/", ec2Handler)
 
-	buildSubscriberHandlers(grpcserver.HegelServer)
+	buildSubscriberHandlers(hegelServer)
 
 	err := registerCustomEndpoints(mux)
 	if err != nil {
