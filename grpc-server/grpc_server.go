@@ -34,6 +34,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+//go:generate protoc -I grpc/protos grpc/protos/hegel.proto --go_out=plugins=grpc:grpc/hegel
+
 var (
 	facility = flag.String("facility", env.Get("HEGEL_FACILITY", "onprem"),
 		"The facility we are running in (mostly to connect to cacher)")
@@ -114,8 +116,6 @@ func (hg hardwareGetterTinkerbell) Watch(ctx context.Context, in getRequest, opt
 	}
 	return w, nil
 }
-
-//go:generate protoc -I grpc/protos grpc/protos/hegel.proto --go_out=plugins=grpc:grpc/hegel
 
 // exportedHardwareCacher is the structure in which hegel returns to clients using the old cacher data model
 // exposes only certain fields of the hardware data returned by cacher
