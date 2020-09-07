@@ -24,7 +24,7 @@ func TestGetByIPCacher(t *testing.T) {
 			Log:            logger,
 			HardwareClient: hardwareGetterMock{test.json},
 		}
-		ehw, err := GetByIP(context.Background(), hegelTestServer, mockUserIP) // returns hardware data as []byte
+		ehw, err := GetByIP(context.Background(), hegelTestServer, MockUserIP) // returns hardware data as []byte
 		if err != nil {
 			t.Fatal("unexpected error while getting hardware by ip:", err)
 		}
@@ -88,7 +88,7 @@ func TestGetByIPTinkerbell(t *testing.T) {
 			Log:            logger,
 			HardwareClient: hardwareGetterMock{test.json},
 		}
-		ehw, err := GetByIP(context.Background(), hegelTestServer, mockUserIP) // returns hardware data as []byte
+		ehw, err := GetByIP(context.Background(), hegelTestServer, MockUserIP) // returns hardware data as []byte
 		if test.error != "" {
 			if err == nil {
 				t.Fatalf("GetByIP should have returned error: %v", test.error)

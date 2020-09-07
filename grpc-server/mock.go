@@ -18,7 +18,7 @@ type hardwareGetterMock struct {
 
 // ByIP mocks the retrieval a piece of hardware from tink/cacher by ip
 // In order to simulate the process of finding the piece of hardware that matches the IP provided in the get request without
-// having to parse the (mock) hardware data `hardwareResp`, the process has been simplified to only match with the constant `mockUserIP`.
+// having to parse the (mock) hardware data `hardwareResp`, the process has been simplified to only match with the constant `MockUserIP`.
 // Given any other IP inside the get request, ByIP will return an empty piece of hardware regardless of whether or not the IP
 // actually matches the IP inside `hardwareResp`.
 func (hg hardwareGetterMock) ByIP(ctx context.Context, in getRequest, opts ...grpc.CallOption) (hardware, error) {
@@ -29,7 +29,7 @@ func (hg hardwareGetterMock) ByIP(ctx context.Context, in getRequest, opts ...gr
 		hw = &tink.Hardware{}
 
 		ip := in.(*tink.GetRequest).Ip
-		if ip != mockUserIP {
+		if ip != MockUserIP {
 			return hw, nil
 		}
 
@@ -39,7 +39,7 @@ func (hg hardwareGetterMock) ByIP(ctx context.Context, in getRequest, opts ...gr
 		}
 	default:
 		ip := in.(*cacher.GetRequest).IP
-		if ip != mockUserIP {
+		if ip != MockUserIP {
 			return &cacher.Hardware{}, nil
 		}
 
@@ -55,7 +55,7 @@ func (hg hardwareGetterMock) Watch(ctx context.Context, in getRequest, opts ...g
 }
 
 const (
-	mockUserIP      = "192.168.1.5" // value is completely arbitrary, as long as it's an IP to be parsed by getIPFromRequest (could even be 0.0.0.0)
+	MockUserIP      = "192.168.1.5" // value is completely arbitrary, as long as it's an IP to be parsed by getIPFromRequest (could even be 0.0.0.0)
 	cacherDataModel = `
 	{
 	  "id": "8978e7d4-1a55-4845-8a66-a5259236b104",

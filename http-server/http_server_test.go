@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"encoding/json"
+	grpcserver "github.com/packethost/hegel/grpc-server"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -75,7 +76,7 @@ func TestGetMetadataCacher(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.RemoteAddr = mockUserIP
+		req.RemoteAddr = grpcserver.MockUserIP
 		resp := httptest.NewRecorder()
 		http.HandleFunc("/metadata", getMetadata("")) // filter not used in cacher mode
 
@@ -128,7 +129,7 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.RemoteAddr = mockUserIP
+		req.RemoteAddr = grpcserver.MockUserIP
 		resp := httptest.NewRecorder()
 
 		mux.ServeHTTP(resp, req)
@@ -180,7 +181,7 @@ func TestGetMetadataTinkerbellKant(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.RemoteAddr = mockUserIP
+		req.RemoteAddr = grpcserver.MockUserIP
 		resp := httptest.NewRecorder()
 
 		mux.ServeHTTP(resp, req)
@@ -229,7 +230,7 @@ func TestRegisterEndpoints(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.RemoteAddr = mockUserIP
+		req.RemoteAddr = grpcserver.MockUserIP
 		resp := httptest.NewRecorder()
 
 		mux.ServeHTTP(resp, req)
@@ -264,7 +265,7 @@ func TestEC2Endpoint(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			req.RemoteAddr = mockUserIP
+			req.RemoteAddr = grpcserver.MockUserIP
 			resp := httptest.NewRecorder()
 
 			http.DefaultServeMux.ServeHTTP(resp, req)
@@ -350,7 +351,7 @@ var trustedProxiesTests = map[string]struct {
 	"single proxy": {
 		trustedProxies: "172.18.0.1",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      mockUserIP,
+		xffHeader:      grpcserver.MockUserIP,
 		lastProxyIP:    "172.18.0.1:8080",
 		status:         200,
 		resp:           "tink-provisioner",
@@ -359,7 +360,7 @@ var trustedProxiesTests = map[string]struct {
 	"multiple proxies": {
 		trustedProxies: "172.18.0.5, 172.18.0.6, 172.18.0.1",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.1", "172.18.0.5"}, ", "),
+		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.1", "172.18.0.5"}, ", "),
 		lastProxyIP:    "172.18.0.6:8080",
 		status:         200,
 		resp:           "tink-provisioner",
@@ -367,7 +368,7 @@ var trustedProxiesTests = map[string]struct {
 	},
 	"single proxy, no trusted proxies set": {
 		url:         "/2009-04-04/meta-data/hostname",
-		xffHeader:   mockUserIP,
+		xffHeader:   grpcserver.MockUserIP,
 		lastProxyIP: "172.18.0.1:8080",
 		status:      404,
 		json:        tinkerbellKant,
@@ -375,7 +376,7 @@ var trustedProxiesTests = map[string]struct {
 	"single proxy, multiple trusted proxies set (proxy in list)": {
 		trustedProxies: "172.18.0.6, 172.18.0.1",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      mockUserIP,
+		xffHeader:      grpcserver.MockUserIP,
 		lastProxyIP:    "172.18.0.6:8080",
 		status:         200,
 		resp:           "tink-provisioner",
@@ -384,7 +385,7 @@ var trustedProxiesTests = map[string]struct {
 	"single proxy, multiple trusted proxies set (proxy not in list)": {
 		trustedProxies: "172.18.0.5, 172.18.0.1",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      mockUserIP,
+		xffHeader:      grpcserver.MockUserIP,
 		lastProxyIP:    "172.18.0.6:8080",
 		status:         404,
 		json:           tinkerbellKant,
@@ -392,7 +393,7 @@ var trustedProxiesTests = map[string]struct {
 	"multiple proxies, multiple trusted proxies set (one proxy not in list)": {
 		trustedProxies: "172.18.0.5, 172.18.0.1",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.6"}, ", "),
+		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.6"}, ", "),
 		lastProxyIP:    "172.18.0.5:8080",
 		status:         404,
 		json:           tinkerbellKant,
@@ -400,7 +401,7 @@ var trustedProxiesTests = map[string]struct {
 	"multiple proxies, multiple trusted proxies set (proxies in mask)": {
 		trustedProxies: "172.18.1.1, 172.18.0.0/29",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.5", "172.18.0.6"}, ", "),
+		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.5", "172.18.0.6"}, ", "),
 		lastProxyIP:    "172.18.1.1:8080",
 		status:         200,
 		resp:           "tink-provisioner",
@@ -409,7 +410,7 @@ var trustedProxiesTests = map[string]struct {
 	"multiple proxies, multiple trusted proxies set (multiple masks)": {
 		trustedProxies: "172.18.1.0/29, 172.18.0.0/27",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.5", "172.18.1.6"}, ", "),
+		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.5", "172.18.1.6"}, ", "),
 		lastProxyIP:    "172.18.1.1:8080",
 		status:         200,
 		resp:           "tink-provisioner",
@@ -418,7 +419,7 @@ var trustedProxiesTests = map[string]struct {
 	"multiple proxies, multiple trusted proxies set (overlapping masks)": {
 		trustedProxies: "172.18.0.0/29, 172.18.0.0/27",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.5", "172.18.0.27"}, ", "),
+		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.5", "172.18.0.27"}, ", "),
 		lastProxyIP:    "172.18.0.6:8080",
 		status:         200,
 		resp:           "tink-provisioner",
@@ -427,7 +428,7 @@ var trustedProxiesTests = map[string]struct {
 	"multiple proxies, multiple trusted proxies set (one proxy not in mask)": {
 		trustedProxies: "172.18.0.0/29",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.5", "172.18.1.1"}, ", "),
+		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.5", "172.18.1.1"}, ", "),
 		lastProxyIP:    "172.18.0.1:8080",
 		status:         404,
 		json:           tinkerbellKant,
@@ -435,7 +436,7 @@ var trustedProxiesTests = map[string]struct {
 	"multiple trusted proxies set (no spaces)": {
 		trustedProxies: "172.18.0.6,172.18.0.5,172.18.0.1",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.5", "172.18.0.1"}, ", "),
+		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.5", "172.18.0.1"}, ", "),
 		lastProxyIP:    "172.18.0.6:8080",
 		status:         200,
 		resp:           "tink-provisioner",
@@ -444,7 +445,7 @@ var trustedProxiesTests = map[string]struct {
 	"multiple trusted proxies set (extra commas)": {
 		trustedProxies: "172.18.0.6,, 172.18.0.5,172.18.0.1,",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{mockUserIP, "172.18.0.5", "172.18.0.1"}, ", "),
+		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.5", "172.18.0.1"}, ", "),
 		lastProxyIP:    "172.18.0.6:8080",
 		status:         200,
 		resp:           "tink-provisioner",
