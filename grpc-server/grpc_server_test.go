@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	httpserver "github.com/packethost/hegel/http-server"
 	"os"
 	"reflect"
 	"testing"
 
+	httpserver "github.com/packethost/hegel/http-server"
 	"github.com/tinkerbell/tink/protos/packet"
 )
 

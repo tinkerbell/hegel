@@ -1,7 +1,6 @@
 package grpcserver
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -14,7 +13,6 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/itchyny/gojq"
 	cacherClient "github.com/packethost/cacher/client"
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/packethost/hegel/grpc/hegel"
@@ -331,46 +329,6 @@ func ExportHardware(hw []byte) ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(exported)
-}
-
-func FilterMetadata(hw []byte, filter string) ([]byte, error) {
-	var result bytes.Buffer
-	query, err := gojq.Parse(filter)
-	if err != nil {
-		return nil, err
-	}
-	input := make(map[string]interface{})
-	err = json.Unmarshal(hw, &input)
-	if err != nil {
-		return nil, err
-	}
-	iter := query.Run(input)
-	for {
-		v, ok := iter.Next()
-		if !ok {
-			break
-		}
-
-		if v == nil {
-			continue
-		}
-
-		switch vv := v.(type) {
-		case error:
-			return nil, errors.Wrap(vv, "error while filtering with gojq")
-		case string:
-			result.WriteString(vv)
-		default:
-			marshalled, err := json.Marshal(vv)
-			if err != nil {
-				return nil, errors.Wrap(err, "error marshalling jq result")
-			}
-			result.Write(marshalled)
-		}
-		result.WriteRune('\n')
-	}
-
-	return bytes.TrimSuffix(result.Bytes(), []byte("\n")), nil
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface for custom unmarshalling of exportedHardwareCacher

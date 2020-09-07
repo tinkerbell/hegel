@@ -2,7 +2,6 @@ package httpserver
 
 import (
 	"encoding/json"
-	grpcserver "github.com/packethost/hegel/grpc-server"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	grpcserver "github.com/packethost/hegel/grpc-server"
 	"github.com/packethost/hegel/xff"
 	"github.com/tinkerbell/tink/protos/packet"
 )

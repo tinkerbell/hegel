@@ -1,9 +1,9 @@
 package httpserver
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -12,8 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/itchyny/gojq"
 	grpcserver "github.com/packethost/hegel/grpc-server"
 	"github.com/packethost/hegel/metrics"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -122,7 +124,7 @@ func getMetadata(filter string) http.HandlerFunc {
 				return
 			}
 		case "1":
-			resp, err = grpcserver.FilterMetadata(hw, filter)
+			resp, err = filterMetadata(hw, filter)
 			if err != nil {
 				l.With("error", err).Info("failed to filter metadata")
 				w.WriteHeader(http.StatusInternalServerError)
@@ -178,7 +180,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resp []byte
-	resp, err = grpcserver.FilterMetadata(hw, filter)
+	resp, err = filterMetadata(hw, filter)
 	if err != nil {
 		l.With("error", err).Info("failed to filter metadata")
 	}
@@ -189,6 +191,46 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		l.With("error", err).Info("failed to write response")
 	}
+}
+
+func filterMetadata(hw []byte, filter string) ([]byte, error) {
+	var result bytes.Buffer
+	query, err := gojq.Parse(filter)
+	if err != nil {
+		return nil, err
+	}
+	input := make(map[string]interface{})
+	err = json.Unmarshal(hw, &input)
+	if err != nil {
+		return nil, err
+	}
+	iter := query.Run(input)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+
+		if v == nil {
+			continue
+		}
+
+		switch vv := v.(type) {
+		case error:
+			return nil, errors.Wrap(vv, "error while filtering with gojq")
+		case string:
+			result.WriteString(vv)
+		default:
+			marshalled, err := json.Marshal(vv)
+			if err != nil {
+				return nil, errors.Wrap(err, "error marshalling jq result")
+			}
+			result.Write(marshalled)
+		}
+		result.WriteRune('\n')
+	}
+
+	return bytes.TrimSuffix(result.Bytes(), []byte("\n")), nil
 }
 
 // processEC2Query returns either a specific filter (used to parse hardware data for the value of a specific field),
