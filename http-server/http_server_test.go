@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"encoding/json"
+	"github.com/packethost/hegel/hardware-getter/mock"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	grpcserver "github.com/packethost/hegel/grpc-server"
 	"github.com/packethost/hegel/xff"
 	"github.com/tinkerbell/tink/protos/packet"
 )
@@ -28,7 +28,7 @@ func TestTrustedProxies(t *testing.T) {
 	for name, test := range trustedProxiesTests {
 		t.Run(name, func(t *testing.T) {
 			os.Setenv("TRUSTED_PROXIES", test.trustedProxies)
-			hegelServer.hardwareClient = hardwareGetterMock{test.json}
+			hegelServer.HardwareClient = mock.HardwareGetterMock{test.json}
 
 			mux := &http.ServeMux{}
 			mux.HandleFunc("/2009-04-04/", ec2Handler)
@@ -59,50 +59,51 @@ func TestTrustedProxies(t *testing.T) {
 	}
 }
 
-func TestGetMetadataCacher(t *testing.T) {
-	for name, test := range cacherTests {
-		t.Log(name)
-		hegelServer.hardwareClient = hardwareGetterMock{test.json}
-
-		dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-		defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
-		os.Unsetenv("DATA_MODEL_VERSION")
-
-		customEndpoints := os.Getenv("CUSTOM_ENDPOINTS")
-		defer os.Setenv("CUSTOM_ENDPOINTS", customEndpoints)
-		os.Unsetenv("CUSTOM_ENDPOINTS")
-
-		req, err := http.NewRequest("GET", "/metadata", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		req.RemoteAddr = grpcserver.MockUserIP
-		resp := httptest.NewRecorder()
-		http.HandleFunc("/metadata", getMetadata("")) // filter not used in cacher mode
-
-		http.DefaultServeMux.ServeHTTP(resp, req)
-
-		if status := resp.Code; status != http.StatusOK {
-			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, http.StatusOK)
-		}
-
-		hw := exportedHardwareCacher{}
-		err = json.Unmarshal(resp.Body.Bytes(), &hw)
-		if err != nil {
-			t.Error("Error in unmarshalling hardware:", err)
-		}
-
-		if hw.ID != test.id {
-			t.Errorf("handler returned unexpected id: got %v want %v",
-				hw.ID, test.id)
-		}
-		if hw.PlanSlug != test.planSlug {
-			t.Errorf("handler returned unexpected plan slug: got %v want %v",
-				hw.PlanSlug, test.planSlug)
-		}
-	}
-}
+// soon to be removed
+//func TestGetMetadataCacher(t *testing.T) {
+//	for name, test := range cacherTests {
+//		t.Log(name)
+//		hegelServer.HardwareClient = mock.HardwareGetterMock{test.json}
+//
+//		dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
+//		defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
+//		os.Unsetenv("DATA_MODEL_VERSION")
+//
+//		customEndpoints := os.Getenv("CUSTOM_ENDPOINTS")
+//		defer os.Setenv("CUSTOM_ENDPOINTS", customEndpoints)
+//		os.Unsetenv("CUSTOM_ENDPOINTS")
+//
+//		req, err := http.NewRequest("GET", "/metadata", nil)
+//		if err != nil {
+//			t.Fatal(err)
+//		}
+//		req.RemoteAddr = mock.UserIP
+//		resp := httptest.NewRecorder()
+//		http.HandleFunc("/metadata", getMetadata("")) // filter not used in cacher mode
+//
+//		http.DefaultServeMux.ServeHTTP(resp, req)
+//
+//		if status := resp.Code; status != http.StatusOK {
+//			t.Errorf("handler returned wrong status code: got %v want %v",
+//				status, http.StatusOK)
+//		}
+//
+//		hw := exportedHardwareCacher{}
+//		err = json.Unmarshal(resp.Body.Bytes(), &hw)
+//		if err != nil {
+//			t.Error("Error in unmarshalling hardware:", err)
+//		}
+//
+//		if hw.ID != test.id {
+//			t.Errorf("handler returned unexpected id: got %v want %v",
+//				hw.ID, test.id)
+//		}
+//		if hw.PlanSlug != test.planSlug {
+//			t.Errorf("handler returned unexpected plan slug: got %v want %v",
+//				hw.PlanSlug, test.planSlug)
+//		}
+//	}
+//}
 
 // TestGetMetadataTinkerbell tests the default use case in tinkerbell mode
 func TestGetMetadataTinkerbell(t *testing.T) {
@@ -116,7 +117,7 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 
 	for name, test := range tinkerbellTests {
 		t.Log(name)
-		hegelServer.hardwareClient = hardwareGetterMock{test.json}
+		hegelServer.HardwareClient = mock.HardwareGetterMock{test.json}
 
 		mux := &http.ServeMux{}
 
@@ -129,7 +130,7 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.RemoteAddr = grpcserver.MockUserIP
+		req.RemoteAddr = mock.UserIP
 		resp := httptest.NewRecorder()
 
 		mux.ServeHTTP(resp, req)
@@ -168,7 +169,7 @@ func TestGetMetadataTinkerbellKant(t *testing.T) {
 
 	for name, test := range tinkerbellKantTests {
 		t.Log(name)
-		hegelServer.hardwareClient = hardwareGetterMock{test.json}
+		hegelServer.HardwareClient = mock.HardwareGetterMock{test.json}
 
 		mux := &http.ServeMux{}
 
@@ -181,7 +182,7 @@ func TestGetMetadataTinkerbellKant(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.RemoteAddr = grpcserver.MockUserIP
+		req.RemoteAddr = mock.UserIP
 		resp := httptest.NewRecorder()
 
 		mux.ServeHTTP(resp, req)
@@ -208,7 +209,7 @@ func TestRegisterEndpoints(t *testing.T) {
 
 	for name, test := range registerEndpointTests {
 		t.Log(name)
-		hegelServer.hardwareClient = hardwareGetterMock{test.json}
+		hegelServer.HardwareClient = mock.HardwareGetterMock{test.json}
 
 		os.Unsetenv("CUSTOM_ENDPOINTS")
 		if test.customEndpoints != "" {
@@ -230,7 +231,7 @@ func TestRegisterEndpoints(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.RemoteAddr = grpcserver.MockUserIP
+		req.RemoteAddr = mock.UserIP
 		resp := httptest.NewRecorder()
 
 		mux.ServeHTTP(resp, req)
@@ -254,7 +255,7 @@ func TestEC2Endpoint(t *testing.T) {
 
 	for name, test := range tinkerbellEC2Tests {
 		t.Run(name, func(t *testing.T) {
-			hegelServer.hardwareClient = hardwareGetterMock{test.json}
+			hegelServer.HardwareClient = mock.HardwareGetterMock{test.json}
 
 			http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
 
@@ -265,7 +266,7 @@ func TestEC2Endpoint(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			req.RemoteAddr = grpcserver.MockUserIP
+			req.RemoteAddr = mock.UserIP
 			resp := httptest.NewRecorder()
 
 			http.DefaultServeMux.ServeHTTP(resp, req)
@@ -277,6 +278,26 @@ func TestEC2Endpoint(t *testing.T) {
 
 			if resp.Body.String() != test.response {
 				t.Errorf("handler returned wrong body: got %v want %v", resp.Body.String(), test.response)
+			}
+		})
+	}
+}
+
+func TestFilterMetadata(t *testing.T) {
+	for name, test := range tinkerbellFilterMetadataTests {
+		t.Run(name, func(t *testing.T) {
+
+			res, err := filterMetadata([]byte(test.json), test.filter)
+			if test.error != "" {
+				if err == nil {
+					t.Errorf("FilterMetadata should have returned error: %v", test.error)
+				} else if err.Error() != test.error {
+					t.Errorf("FilterMetadata returned wrong error: got %v want %v", err, test.error)
+				}
+			}
+
+			if string(res) != test.result {
+				t.Errorf("FilterMetadata returned wrong result: got %s want %v", res, test.result)
 			}
 		})
 	}
@@ -351,120 +372,121 @@ var trustedProxiesTests = map[string]struct {
 	"single proxy": {
 		trustedProxies: "172.18.0.1",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      grpcserver.MockUserIP,
+		xffHeader:      mock.UserIP,
 		lastProxyIP:    "172.18.0.1:8080",
 		status:         200,
 		resp:           "tink-provisioner",
-		json:           tinkerbellKant,
+		json:           mock.TinkerbellKant,
 	},
 	"multiple proxies": {
 		trustedProxies: "172.18.0.5, 172.18.0.6, 172.18.0.1",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.1", "172.18.0.5"}, ", "),
+		xffHeader:      strings.Join([]string{mock.UserIP, "172.18.0.1", "172.18.0.5"}, ", "),
 		lastProxyIP:    "172.18.0.6:8080",
 		status:         200,
 		resp:           "tink-provisioner",
-		json:           tinkerbellKant,
+		json:           mock.TinkerbellKant,
 	},
 	"single proxy, no trusted proxies set": {
 		url:         "/2009-04-04/meta-data/hostname",
-		xffHeader:   grpcserver.MockUserIP,
+		xffHeader:   mock.UserIP,
 		lastProxyIP: "172.18.0.1:8080",
 		status:      404,
-		json:        tinkerbellKant,
+		json:        mock.TinkerbellKant,
 	},
 	"single proxy, multiple trusted proxies set (proxy in list)": {
 		trustedProxies: "172.18.0.6, 172.18.0.1",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      grpcserver.MockUserIP,
+		xffHeader:      mock.UserIP,
 		lastProxyIP:    "172.18.0.6:8080",
 		status:         200,
 		resp:           "tink-provisioner",
-		json:           tinkerbellKant,
+		json:           mock.TinkerbellKant,
 	},
 	"single proxy, multiple trusted proxies set (proxy not in list)": {
 		trustedProxies: "172.18.0.5, 172.18.0.1",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      grpcserver.MockUserIP,
+		xffHeader:      mock.UserIP,
 		lastProxyIP:    "172.18.0.6:8080",
 		status:         404,
-		json:           tinkerbellKant,
+		json:           mock.TinkerbellKant,
 	},
 	"multiple proxies, multiple trusted proxies set (one proxy not in list)": {
 		trustedProxies: "172.18.0.5, 172.18.0.1",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.6"}, ", "),
+		xffHeader:      strings.Join([]string{mock.UserIP, "172.18.0.6"}, ", "),
 		lastProxyIP:    "172.18.0.5:8080",
 		status:         404,
-		json:           tinkerbellKant,
+		json:           mock.TinkerbellKant,
 	},
 	"multiple proxies, multiple trusted proxies set (proxies in mask)": {
 		trustedProxies: "172.18.1.1, 172.18.0.0/29",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.5", "172.18.0.6"}, ", "),
+		xffHeader:      strings.Join([]string{mock.UserIP, "172.18.0.5", "172.18.0.6"}, ", "),
 		lastProxyIP:    "172.18.1.1:8080",
 		status:         200,
 		resp:           "tink-provisioner",
-		json:           tinkerbellKant,
+		json:           mock.TinkerbellKant,
 	},
 	"multiple proxies, multiple trusted proxies set (multiple masks)": {
 		trustedProxies: "172.18.1.0/29, 172.18.0.0/27",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.5", "172.18.1.6"}, ", "),
+		xffHeader:      strings.Join([]string{mock.UserIP, "172.18.0.5", "172.18.1.6"}, ", "),
 		lastProxyIP:    "172.18.1.1:8080",
 		status:         200,
 		resp:           "tink-provisioner",
-		json:           tinkerbellKant,
+		json:           mock.TinkerbellKant,
 	},
 	"multiple proxies, multiple trusted proxies set (overlapping masks)": {
 		trustedProxies: "172.18.0.0/29, 172.18.0.0/27",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.5", "172.18.0.27"}, ", "),
+		xffHeader:      strings.Join([]string{mock.UserIP, "172.18.0.5", "172.18.0.27"}, ", "),
 		lastProxyIP:    "172.18.0.6:8080",
 		status:         200,
 		resp:           "tink-provisioner",
-		json:           tinkerbellKant,
+		json:           mock.TinkerbellKant,
 	},
 	"multiple proxies, multiple trusted proxies set (one proxy not in mask)": {
 		trustedProxies: "172.18.0.0/29",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.5", "172.18.1.1"}, ", "),
+		xffHeader:      strings.Join([]string{mock.UserIP, "172.18.0.5", "172.18.1.1"}, ", "),
 		lastProxyIP:    "172.18.0.1:8080",
 		status:         404,
-		json:           tinkerbellKant,
+		json:           mock.TinkerbellKant,
 	},
 	"multiple trusted proxies set (no spaces)": {
 		trustedProxies: "172.18.0.6,172.18.0.5,172.18.0.1",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.5", "172.18.0.1"}, ", "),
+		xffHeader:      strings.Join([]string{mock.UserIP, "172.18.0.5", "172.18.0.1"}, ", "),
 		lastProxyIP:    "172.18.0.6:8080",
 		status:         200,
 		resp:           "tink-provisioner",
-		json:           tinkerbellKant,
+		json:           mock.TinkerbellKant,
 	},
 	"multiple trusted proxies set (extra commas)": {
 		trustedProxies: "172.18.0.6,, 172.18.0.5,172.18.0.1,",
 		url:            "/2009-04-04/meta-data/hostname",
-		xffHeader:      strings.Join([]string{grpcserver.MockUserIP, "172.18.0.5", "172.18.0.1"}, ", "),
+		xffHeader:      strings.Join([]string{mock.UserIP, "172.18.0.5", "172.18.0.1"}, ", "),
 		lastProxyIP:    "172.18.0.6:8080",
 		status:         200,
 		resp:           "tink-provisioner",
-		json:           tinkerbellKant,
+		json:           mock.TinkerbellKant,
 	},
 }
 
-// test cases for TestGetMetadataCacher
-var cacherTests = map[string]struct {
-	id       string
-	planSlug string
-	json     string
-}{
-	"cacher": {
-		id:       "8978e7d4-1a55-4845-8a66-a5259236b104",
-		planSlug: "t1.small.x86",
-		json:     cacherDataModel,
-	},
-}
+// soon to be removed
+//// test cases for TestGetMetadataCacher
+//var cacherTests = map[string]struct {
+//	id       string
+//	planSlug string
+//	json     string
+//}{
+//	"cacher": {
+//		id:       "8978e7d4-1a55-4845-8a66-a5259236b104",
+//		planSlug: "t1.small.x86",
+//		json:     mock.CacherDataModel,
+//	},
+//}
 
 // test cases for TestGetMetadataTinkerbell
 var tinkerbellTests = map[string]struct {
@@ -475,11 +497,11 @@ var tinkerbellTests = map[string]struct {
 	"tinkerbell": {
 		id:          "fde7c87c-d154-447e-9fce-7eb7bdec90c0",
 		bondingMode: 5,
-		json:        tinkerbellDataModel,
+		json:        mock.TinkerbellDataModel,
 	},
 	"tinkerbell no metadata": {
 		id:   "363115b0-f03d-4ce5-9a15-5514193d131a",
-		json: tinkerbellNoMetadata,
+		json: mock.TinkerbellNoMetadata,
 	},
 }
 
@@ -494,13 +516,13 @@ var tinkerbellKantTests = map[string]struct {
 		url:      "/metadata",
 		status:   200,
 		response: `{"facility":"sjc1","hostname":"tink-provisioner","id":"f955e31a-cab6-44d6-872c-9614c2024bb4"}`,
-		json:     tinkerbellKant,
+		json:     mock.TinkerbellKant,
 	},
 	"components endpoint": {
 		url:      "/components",
 		status:   200,
 		response: `{"id":"bc9ce39b-7f18-425b-bc7b-067914fa9786","type":"DiskComponent"}`,
-		json:     tinkerbellKant,
+		json:     mock.TinkerbellKant,
 	},
 	"userdata endpoint": {
 		url:    "/userdata",
@@ -508,13 +530,13 @@ var tinkerbellKantTests = map[string]struct {
 		response: `#!/bin/bash
 
 echo "Hello world!"`,
-		json: tinkerbellKant,
+		json: mock.TinkerbellKant,
 	},
 	"no metadata": {
 		url:      "/metadata",
 		status:   200,
 		response: "",
-		json:     tinkerbellNoMetadata,
+		json:     mock.TinkerbellNoMetadata,
 	},
 }
 
@@ -531,57 +553,57 @@ var registerEndpointTests = map[string]struct {
 		customEndpoints: `{"/facility": ".metadata.facility"}`,
 		url:             "/facility",
 		status:          200,
-		json:            tinkerbellDataModel,
+		json:            mock.TinkerbellDataModel,
 	},
 	"single custom endpoint, non-metadata": {
 		customEndpoints: `{"/id": ".id"}`,
 		url:             "/id",
 		status:          200,
-		json:            tinkerbellDataModel,
+		json:            mock.TinkerbellDataModel,
 	},
 	"single custom endpoint, invalid url call": {
 		customEndpoints: `{"/userdata": ".metadata.userdata"}`,
 		url:             "/metadata",
 		status:          404,
-		json:            tinkerbellDataModel,
+		json:            mock.TinkerbellDataModel,
 	},
 	"multiple custom endpoints": {
 		customEndpoints: `{"/metadata":".metadata.instance","/components":".metadata.components","/all":".","/userdata":".metadata.userdata"}`,
 		url:             "/components",
 		status:          200,
-		json:            tinkerbellDataModel,
+		json:            mock.TinkerbellDataModel,
 	},
 	"default endpoint": {
 		url:    "/metadata",
 		status: 200,
-		json:   tinkerbellDataModel,
+		json:   mock.TinkerbellDataModel,
 	},
 	"custom endpoints invalid format (not a map)": {
 		customEndpoints: `"/userdata":".metadata.userdata"`,
 		url:             "/userdata",
 		status:          404,
 		error:           "error in parsing custom endpoints: invalid character ':' after top-level value",
-		json:            tinkerbellDataModel,
+		json:            mock.TinkerbellDataModel,
 	},
 	"custom endpoints invalid format (endpoint missing forward slash)": {
 		customEndpoints: `{"userdata":".metadata.userdata"}`,
 		url:             "/userdata",
 		status:          404,
-		json:            tinkerbellDataModel,
+		json:            mock.TinkerbellDataModel,
 	},
 	"custom endpoints invalid format (invalid jq filter syntax)": {
 		customEndpoints:     `{"/userdata":"invalid"}`,
 		url:                 "/userdata",
 		status:              500,
 		expectResponseEmpty: true,
-		json:                tinkerbellDataModel,
+		json:                mock.TinkerbellDataModel,
 	},
 	"custom endpoints invalid format (valid jq filter syntax, nonexistent field)": {
 		customEndpoints:     `{"/userdata":".nonexistent"}`,
 		url:                 "/userdata",
 		status:              200,
 		expectResponseEmpty: true,
-		json:                tinkerbellDataModel,
+		json:                mock.TinkerbellDataModel,
 	},
 }
 
@@ -598,7 +620,7 @@ var tinkerbellEC2Tests = map[string]struct {
 		response: `#!/bin/bash
 
 echo "Hello world!"`,
-		json: tinkerbellKantEC2,
+		json: mock.TinkerbellKantEC2,
 	},
 	"meta-data": {
 		url:    "/2009-04-04/meta-data",
@@ -614,76 +636,76 @@ public-ipv4
 public-ipv6
 public-keys
 tags`,
-		json: tinkerbellKantEC2,
+		json: mock.TinkerbellKantEC2,
 	},
 	"instance-id": {
 		url:      "/2009-04-04/meta-data/instance-id",
 		status:   200,
 		response: "7c9a5711-aadd-4fa0-8e57-789431626a27",
-		json:     tinkerbellKantEC2,
+		json:     mock.TinkerbellKantEC2,
 	},
 	"public-ipv4": {
 		url:      "/2009-04-04/meta-data/public-ipv4",
 		status:   200,
 		response: "139.175.86.114",
-		json:     tinkerbellKantEC2,
+		json:     mock.TinkerbellKantEC2,
 	},
 	"public-ipv6": {
 		url:      "/2009-04-04/meta-data/public-ipv6",
 		status:   200,
 		response: "2604:1380:1000:ca00::7",
-		json:     tinkerbellKantEC2,
+		json:     mock.TinkerbellKantEC2,
 	},
 	"local-ipv4": {
 		url:      "/2009-04-04/meta-data/local-ipv4",
 		status:   200,
 		response: "10.87.63.3",
-		json:     tinkerbellKantEC2,
+		json:     mock.TinkerbellKantEC2,
 	},
 	"tags": {
 		url:    "/2009-04-04/meta-data/tags",
 		status: 200,
 		response: `hello
 test`,
-		json: tinkerbellKantEC2,
+		json: mock.TinkerbellKantEC2,
 	},
 	"operating-system slug": {
 		url:      "/2009-04-04/meta-data/operating-system/slug",
 		status:   200,
 		response: "ubuntu_18_04",
-		json:     tinkerbellKantEC2,
+		json:     mock.TinkerbellKantEC2,
 	},
 	"invalid metadata item": {
 		url:      "/2009-04-04/meta-data/invalid",
 		status:   404,
 		response: "404 not found",
-		json:     tinkerbellKantEC2,
+		json:     mock.TinkerbellKantEC2,
 	},
 	"valid metadata item, but not found": {
 		url:      "/2009-04-04/meta-data/public-keys",
 		status:   200,
 		response: "",
-		json:     tinkerbellNoMetadata,
+		json:     mock.TinkerbellNoMetadata,
 	},
 	"with trailing slash": {
 		url:      "/2009-04-04/meta-data/hostname/",
 		status:   200,
 		response: "tink-provisioner",
-		json:     tinkerbellKantEC2,
+		json:     mock.TinkerbellKantEC2,
 	},
 	"base endpoint": {
 		url:    "/2009-04-04",
 		status: 200,
 		response: `meta-data
 user-data`,
-		json: tinkerbellKantEC2,
+		json: mock.TinkerbellKantEC2,
 	},
 	"base endpoint with trailing slash": {
 		url:    "/2009-04-04/",
 		status: 200,
 		response: `meta-data
 user-data`,
-		json: tinkerbellKantEC2,
+		json: mock.TinkerbellKantEC2,
 	},
 	"spot instance with empty (but still present) spot field": {
 		url:    "/2009-04-04/meta-data",
@@ -700,13 +722,88 @@ public-ipv6
 public-keys
 spot
 tags`,
-		json: tinkerbellKantEC2SpotEmpty,
+		json: mock.TinkerbellKantEC2SpotEmpty,
 	},
 	"termination-time": {
 		url:      "/2009-04-04/meta-data/spot/termination-time",
 		status:   200,
 		response: "now",
-		json:     tinkerbellKantEC2SpotWithTermination,
+		json:     mock.TinkerbellKantEC2SpotWithTermination,
+	},
+}
+
+// test cases for TestFilterMetadata
+var tinkerbellFilterMetadataTests = map[string]struct {
+	filter string
+	result string
+	error  string
+	json   string
+}{
+	"single result (simple)": {
+		filter: Ec2Filters["/user-data"],
+		result: `#!/bin/bash
+
+echo "Hello world!"`,
+		json: mock.TinkerbellFilterMetadata,
+	},
+	"single result (complex)": {
+		filter: Ec2Filters["/meta-data/public-ipv4"],
+		result: "139.175.86.114",
+		json:   mock.TinkerbellFilterMetadata,
+	},
+	"multiple results (separated list results from hardware)": {
+		filter: Ec2Filters["/meta-data/tags"],
+		result: `hello
+test`,
+		json: mock.TinkerbellFilterMetadata,
+	},
+	"multiple results (separated list results from filter)": {
+		filter: Ec2Filters["/meta-data/operating-system"],
+		result: `distro
+image_tag
+license_activation
+slug
+version`,
+		json: mock.TinkerbellFilterMetadata,
+	},
+	"multiple results (/meta-data filter with spot field present)": {
+		filter: Ec2Filters["/meta-data"],
+		result: `facility
+hostname
+instance-id
+iqn
+local-ipv4
+operating-system
+plan
+public-ipv4
+public-ipv6
+public-keys
+spot
+tags`,
+		json: mock.TinkerbellFilterMetadata,
+	},
+	"invalid filter syntax": {
+		filter: "invalid",
+		error:  "error while filtering with gojq: function not defined: invalid/0",
+		json:   mock.TinkerbellFilterMetadata,
+	},
+	"valid filter syntax, nonexistent field": {
+		filter: "metadata.nonexistent",
+		json:   mock.TinkerbellFilterMetadata,
+	},
+	"empty string filter": {
+		filter: "",
+		result: mock.TinkerbellFilterMetadata,
+		json:   mock.TinkerbellFilterMetadata,
+	},
+	"list filter on nonexistent field, without '?'": {
+		filter: ".metadata.nonexistent[]",
+		error:  "error while filtering with gojq: cannot iterate over: null",
+		json:   mock.TinkerbellFilterMetadata,
+	},
+	"list filter on nonexistent field, with '?'": {
+		filter: ".metadata.nonexistent[]?",
+		json:   mock.TinkerbellFilterMetadata,
 	},
 }
 

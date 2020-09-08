@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	hardwaregetter "github.com/packethost/hegel/hardware-getter"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -40,7 +41,7 @@ func main() {
 
 	metrics.State.Set(metrics.Initializing)
 
-	var hg grpcserver.HardwareGetter
+	var hg hardwaregetter.Client
 	dataModelVersion := env.Get("DATA_MODEL_VERSION")
 	switch dataModelVersion {
 	case "1":
@@ -48,14 +49,14 @@ func main() {
 		if err != nil {
 			l.Fatal(err, "Failed to create the tink client")
 		}
-		hg = grpcserver.HardwareGetterTinkerbell{tc}
+		hg = hardwaregetter.TinkerbellClient{tc}
 		// add health check for tink?
 	default:
 		cc, err := cacherClient.New(*facility)
 		if err != nil {
 			l.Fatal(err, "Failed to create the cacher client")
 		}
-		hg = grpcserver.HardwareGetterCacher{cc}
+		hg = hardwaregetter.CacherClient{cc}
 		go func() {
 			c := time.Tick(15 * time.Second)
 			for range c {

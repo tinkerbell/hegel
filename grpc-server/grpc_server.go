@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	hardwaregetter "github.com/packethost/hegel/hardware-getter"
 	"io"
 	"net"
 	"os"
@@ -43,20 +44,11 @@ var (
 
 type Server struct {
 	Log            log.Logger
-	HardwareClient HardwareGetter
+	HardwareClient hardwaregetter.Client
 
 	SubLock       sync.RWMutex
 	Subscriptions map[string]*Subscription
 }
-
-type HardwareGetter interface {
-	ByIP(ctx context.Context, in GetRequest, opts ...grpc.CallOption) (Hardware, error)
-	Watch(ctx context.Context, in GetRequest, opts ...grpc.CallOption) (WatchClient, error)
-}
-
-type GetRequest interface{}
-type Hardware interface{}
-type WatchClient interface{}
 
 type Subscription struct {
 	ID           string        `json:"id"`
@@ -65,46 +57,6 @@ type Subscription struct {
 	StartedAt    time.Time     `json:"started_at"`
 	cancel       func()
 	updateChan   chan []byte
-}
-
-type HardwareGetterCacher struct {
-	Client cacher.CacherClient
-}
-
-type HardwareGetterTinkerbell struct {
-	Client tink.HardwareServiceClient
-}
-
-func (hg HardwareGetterCacher) ByIP(ctx context.Context, in GetRequest, opts ...grpc.CallOption) (Hardware, error) {
-	hw, err := hg.Client.ByIP(ctx, in.(*cacher.GetRequest), opts...)
-	if err != nil {
-		return nil, err
-	}
-	return hw, nil
-}
-
-func (hg HardwareGetterCacher) Watch(ctx context.Context, in GetRequest, opts ...grpc.CallOption) (WatchClient, error) {
-	w, err := hg.Client.Watch(ctx, in.(*cacher.GetRequest), opts...)
-	if err != nil {
-		return nil, err
-	}
-	return w, nil
-}
-
-func (hg HardwareGetterTinkerbell) ByIP(ctx context.Context, in GetRequest, opts ...grpc.CallOption) (Hardware, error) {
-	hw, err := hg.Client.ByIP(ctx, in.(*tink.GetRequest), opts...)
-	if err != nil {
-		return nil, err
-	}
-	return hw, nil
-}
-
-func (hg HardwareGetterTinkerbell) Watch(ctx context.Context, in GetRequest, opts ...grpc.CallOption) (WatchClient, error) {
-	w, err := hg.Client.Watch(ctx, in.(*tink.GetRequest), opts...)
-	if err != nil {
-		return nil, err
-	}
-	return w, nil
 }
 
 // exportedHardwareCacher is the structure in which hegel returns to clients using the old cacher data model
@@ -333,7 +285,7 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 
 	logger.Info()
 
-	var watch WatchClient
+	var watch hardwaregetter.Watcher
 	var ctx context.Context
 	var cancel context.CancelFunc
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")

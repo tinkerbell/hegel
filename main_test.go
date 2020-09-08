@@ -9,9 +9,9 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	hegelServer = &server{
-		log: logger,
-	}
+	//hegelServer = &grpcserver.Server{
+	//	Log: logger,
+	//}
 	os.Setenv("PACKET_ENV", "test")
 	os.Setenv("PACKET_VERSION", "ignored")
 	os.Setenv("ROLLBAR_TOKEN", "ignored")
