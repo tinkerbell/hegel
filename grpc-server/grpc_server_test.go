@@ -29,7 +29,7 @@ func TestGetByIPCacher(t *testing.T) {
 
 		hegelTestServer := &Server{
 			Log:            logger,
-			HardwareClient: mock.HardwareGetterMock{test.json},
+			HardwareClient: mock.HardwareGetterMock{HardwareResp: test.json},
 		}
 		ehw, err := GetByIP(context.Background(), hegelTestServer, mock.UserIP) // returns hardware data as []byte
 		if err != nil {
@@ -99,7 +99,7 @@ func TestGetByIPTinkerbell(t *testing.T) {
 
 		hegelTestServer := &Server{
 			Log:            logger,
-			HardwareClient: mock.HardwareGetterMock{test.json},
+			HardwareClient: mock.HardwareGetterMock{HardwareResp: test.json},
 		}
 		ehw, err := GetByIP(context.Background(), hegelTestServer, mock.UserIP) // returns hardware data as []byte
 		if test.error != "" {

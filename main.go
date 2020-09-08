@@ -49,14 +49,14 @@ func main() {
 		if err != nil {
 			l.Fatal(err, "Failed to create the tink client")
 		}
-		hg = hardwaregetter.TinkerbellClient{tc}
+		hg = hardwaregetter.TinkerbellClient{Client: tc}
 		// add health check for tink?
 	default:
 		cc, err := cacherClient.New(*facility)
 		if err != nil {
 			l.Fatal(err, "Failed to create the cacher client")
 		}
-		hg = hardwaregetter.CacherClient{cc}
+		hg = hardwaregetter.CacherClient{Client: cc}
 		go func() {
 			c := time.Tick(15 * time.Second)
 			for range c {
@@ -105,10 +105,10 @@ func main() {
 	var once sync.Once
 	var wg sync.WaitGroup
 	runGoroutine(&ret, cancel, &once, &wg, func() error {
-		return httpserver.Serve(ctx, l, hegelServer, GitRev, time.Now())
+		return httpserver.Serve(ctx, logger, hegelServer, GitRev, time.Now())
 	})
 	runGoroutine(&ret, cancel, &once, &wg, func() error {
-		return grpcserver.Serve(ctx, l, hegelServer)
+		return grpcserver.Serve(ctx, logger, hegelServer)
 	})
 	runGoroutine(&ret, cancel, &once, &wg, func() error {
 		select {
