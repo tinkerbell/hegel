@@ -2,7 +2,6 @@ package httpserver
 
 import (
 	"encoding/json"
-	"github.com/packethost/hegel/hardware-getter/mock"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/packethost/hegel/hardware-getter/mock"
 	"github.com/packethost/hegel/xff"
 	"github.com/tinkerbell/tink/protos/packet"
 )

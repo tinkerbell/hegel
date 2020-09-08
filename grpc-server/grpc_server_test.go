@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/packethost/hegel/hardware-getter/mock"
 	"os"
 	"reflect"
 	"testing"
 
+	"github.com/packethost/hegel/hardware-getter/mock"
 	"github.com/tinkerbell/tink/protos/packet"
 )
 

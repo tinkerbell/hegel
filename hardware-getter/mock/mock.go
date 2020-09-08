@@ -3,10 +3,10 @@ package mock
 import (
 	"context"
 	"encoding/json"
-	hardwaregetter "github.com/packethost/hegel/hardware-getter"
 	"os"
 
 	"github.com/packethost/cacher/protos/cacher"
+	hardwaregetter "github.com/packethost/hegel/hardware-getter"
 	tink "github.com/tinkerbell/tink/protos/hardware"
 	"google.golang.org/grpc"
 )

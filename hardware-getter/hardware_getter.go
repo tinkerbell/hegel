@@ -2,9 +2,9 @@ package hardwaregetter
 
 import (
 	"context"
+
 	"github.com/packethost/cacher/protos/cacher"
 	tink "github.com/tinkerbell/tink/protos/hardware"
-
 	"google.golang.org/grpc"
 )
 

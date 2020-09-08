@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	hardwaregetter "github.com/packethost/hegel/hardware-getter"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -14,6 +13,7 @@ import (
 	cacherClient "github.com/packethost/cacher/client"
 	"github.com/packethost/cacher/protos/cacher"
 	grpcserver "github.com/packethost/hegel/grpc-server"
+	hardwaregetter "github.com/packethost/hegel/hardware-getter"
 	httpserver "github.com/packethost/hegel/http-server"
 	"github.com/packethost/hegel/metrics"
 	"github.com/packethost/pkg/env"
