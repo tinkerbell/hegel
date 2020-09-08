@@ -11,10 +11,25 @@ import (
 	"strings"
 	"testing"
 
+	grpcserver "github.com/packethost/hegel/grpc-server"
 	"github.com/packethost/hegel/hardware-getter/mock"
+	"github.com/packethost/hegel/metrics"
 	"github.com/packethost/hegel/xff"
+	"github.com/packethost/pkg/log"
 	"github.com/tinkerbell/tink/protos/packet"
 )
+
+func TestMain(m *testing.M) {
+	l, _ := log.Init("github.com/packethost/hegel")
+	logger = l.Package("httpserver")
+	metrics.Init(l)
+
+	hegelServer = &grpcserver.Server{
+		Log: logger,
+	}
+
+	os.Exit(m.Run())
+}
 
 // TestTrustedProxies tests if the actual remote user IP is extracted correctly from the X-FORWARDED-FOR header according to the list of trusted proxies provided
 func TestTrustedProxies(t *testing.T) {

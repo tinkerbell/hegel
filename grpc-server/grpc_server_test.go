@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/packethost/hegel/hardware-getter/mock"
+	"github.com/packethost/pkg/log"
 	"github.com/tinkerbell/tink/protos/packet"
 )
 
@@ -19,6 +20,12 @@ func TestGetByIPCacher(t *testing.T) {
 		dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 		defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 		os.Unsetenv("DATA_MODEL_VERSION")
+
+		l, err := log.Init("github.com/packethost/hegel")
+		if err != nil {
+			panic(err)
+		}
+		logger := l.Package("grpcserver")
 
 		hegelTestServer := &Server{
 			Log:            logger,
@@ -83,6 +90,12 @@ func TestGetByIPTinkerbell(t *testing.T) {
 
 	for name, test := range tinkerbellGrpcTests {
 		t.Log(name)
+
+		l, err := log.Init("github.com/packethost/hegel")
+		if err != nil {
+			panic(err)
+		}
+		logger := l.Package("grpcserver")
 
 		hegelTestServer := &Server{
 			Log:            logger,
