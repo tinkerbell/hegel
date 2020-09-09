@@ -34,12 +34,9 @@ import (
 //go:generate protoc -I grpc/protos grpc/protos/hegel.proto --go_out=plugins=grpc:grpc/hegel
 
 var (
-	tlsCertPath = flag.String("tls_cert", env.Get("HEGEL_TLS_CERT"),
-		"Path of tls certificat to use.")
-	tlsKeyPath = flag.String("tls_key", env.Get("HEGEL_TLS_KEY"),
-		"Path of tls key to use.")
-	useTLS = flag.Bool("use_tls", env.Bool("HEGEL_USE_TLS", true),
-		"Whether we should use tls or not (should be disabled for traefik)")
+	tlsCertPath = flag.String("tls_cert", env.Get("HEGEL_TLS_CERT"), "Path of tls certificat to use.")
+	tlsKeyPath  = flag.String("tls_key", env.Get("HEGEL_TLS_KEY"), "Path of tls key to use.")
+	useTLS      = flag.Bool("use_tls", env.Bool("HEGEL_USE_TLS", true), "Whether we should use tls or not (should be disabled for traefik)")
 )
 
 type Server struct {
