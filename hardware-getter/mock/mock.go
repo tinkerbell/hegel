@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/packethost/cacher/protos/cacher"
-	hardwaregetter "github.com/packethost/hegel/hardware-getter"
+	hardwaregetter "github.com/tinkerbell/hegel/hardware-getter"
 	tink "github.com/tinkerbell/tink/protos/hardware"
 	"google.golang.org/grpc"
 )

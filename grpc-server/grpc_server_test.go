@@ -8,8 +8,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/packethost/hegel/hardware-getter/mock"
 	"github.com/packethost/pkg/log"
+	"github.com/tinkerbell/hegel/hardware-getter/mock"
 	"github.com/tinkerbell/tink/protos/packet"
 )
 
@@ -21,7 +21,7 @@ func TestGetByIPCacher(t *testing.T) {
 		defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 		os.Unsetenv("DATA_MODEL_VERSION")
 
-		l, err := log.Init("github.com/packethost/hegel")
+		l, err := log.Init("github.com/tinkerbell/hegel")
 		if err != nil {
 			panic(err)
 		}
@@ -91,7 +91,7 @@ func TestGetByIPTinkerbell(t *testing.T) {
 	for name, test := range tinkerbellGrpcTests {
 		t.Log(name)
 
-		l, err := log.Init("github.com/packethost/hegel")
+		l, err := log.Init("github.com/tinkerbell/hegel")
 		if err != nil {
 			panic(err)
 		}

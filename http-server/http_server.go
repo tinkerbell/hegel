@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	grpcserver "github.com/packethost/hegel/grpc-server"
-	"github.com/packethost/hegel/xff"
 	"github.com/packethost/pkg/env"
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	grpcserver "github.com/tinkerbell/hegel/grpc-server"
+	"github.com/tinkerbell/hegel/xff"
 )
 
 var (

@@ -11,16 +11,16 @@ import (
 	"strings"
 	"testing"
 
-	grpcserver "github.com/packethost/hegel/grpc-server"
-	"github.com/packethost/hegel/hardware-getter/mock"
-	"github.com/packethost/hegel/metrics"
-	"github.com/packethost/hegel/xff"
 	"github.com/packethost/pkg/log"
+	grpcserver "github.com/tinkerbell/hegel/grpc-server"
+	"github.com/tinkerbell/hegel/hardware-getter/mock"
+	"github.com/tinkerbell/hegel/metrics"
+	"github.com/tinkerbell/hegel/xff"
 	"github.com/tinkerbell/tink/protos/packet"
 )
 
 func TestMain(m *testing.M) {
-	l, _ := log.Init("github.com/packethost/hegel")
+	l, _ := log.Init("github.com/tinkerbell/hegel")
 	logger = l.Package("httpserver")
 	metrics.Init(l)
 

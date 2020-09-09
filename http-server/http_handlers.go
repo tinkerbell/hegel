@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/itchyny/gojq"
-	grpcserver "github.com/packethost/hegel/grpc-server"
-	"github.com/packethost/hegel/metrics"
 	"github.com/pkg/errors"
+	grpcserver "github.com/tinkerbell/hegel/grpc-server"
+	"github.com/tinkerbell/hegel/metrics"
 )
 
 var (

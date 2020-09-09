@@ -12,12 +12,12 @@ import (
 
 	cacherClient "github.com/packethost/cacher/client"
 	"github.com/packethost/cacher/protos/cacher"
-	grpcserver "github.com/packethost/hegel/grpc-server"
-	hardwaregetter "github.com/packethost/hegel/hardware-getter"
-	httpserver "github.com/packethost/hegel/http-server"
-	"github.com/packethost/hegel/metrics"
 	"github.com/packethost/pkg/env"
 	"github.com/packethost/pkg/log"
+	grpcserver "github.com/tinkerbell/hegel/grpc-server"
+	hardwaregetter "github.com/tinkerbell/hegel/hardware-getter"
+	httpserver "github.com/tinkerbell/hegel/http-server"
+	"github.com/tinkerbell/hegel/metrics"
 	tinkClient "github.com/tinkerbell/tink/client"
 )
 
@@ -31,7 +31,7 @@ var (
 func main() {
 	flag.Parse()
 	// setup structured logging
-	l, err := log.Init("github.com/packethost/hegel")
+	l, err := log.Init("github.com/tinkerbell/hegel")
 	if err != nil {
 		panic(err)
 	}
