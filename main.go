@@ -47,14 +47,14 @@ func main() {
 	case "1":
 		tc, err := tinkClient.TinkHardwareClient()
 		if err != nil {
-			l.Fatal(err, "Failed to create the tink client")
+			l.Fatal(err, "failed to create the tink client")
 		}
 		hg = hardwaregetter.TinkerbellClient{Client: tc}
 		// add health check for tink?
 	default:
 		cc, err := cacherClient.New(*facility)
 		if err != nil {
-			l.Fatal(err, "Failed to create the cacher client")
+			l.Fatal(err, "failed to create the cacher client")
 		}
 		hg = hardwaregetter.CacherClient{Client: cc}
 		go func() {

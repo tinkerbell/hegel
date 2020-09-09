@@ -198,7 +198,7 @@ func Serve(ctx context.Context, l log.Logger, srv *Server) error {
 	l.Info("serving grpc")
 	err = grpcServer.Serve(lis)
 	if err != nil {
-		l.Fatal(err, "Failed to serve  grpc")
+		l.Fatal(err, "failed to serve grpc")
 	}
 
 	return nil
