@@ -339,12 +339,12 @@ func TestProcessEC2Query(t *testing.T) {
 }
 
 // TestEC2FiltersMap checks if the all the metadata items are listed in their corresponding directory-listing filter
-// itemsFromQueries are the metadata items "extracted" from the queries (keys) of the Ec2Filters map
-// itemsFromFilter are the metadata items "extracted" from the filters (values) of the Ec2Filters map
+// itemsFromQueries are the metadata items "extracted" from the queries (keys) of the ec2Filters map
+// itemsFromFilter are the metadata items "extracted" from the filters (values) of the ec2Filters map
 func TestEC2FiltersMap(t *testing.T) {
 	directories := make(map[string][]string) // keys are the directory base paths; values are a list of metadata items that are under the base paths
 
-	for query := range Ec2Filters {
+	for query := range ec2Filters {
 		basePath, metadataItem := path.Split(query)
 		directories[basePath] = append(directories[basePath], metadataItem)
 	}
@@ -357,7 +357,7 @@ func TestEC2FiltersMap(t *testing.T) {
 
 		hw := `{"metadata":{"instance":{"spot":{}}}}` // to make sure the 'spot' metadata item will be included
 		query := strings.TrimSuffix(basePath, "/")
-		dirListFilter := Ec2Filters[query] // get the directory-list filter
+		dirListFilter := ec2Filters[query] // get the directory-list filter
 		itemsFromFilter, err := filterMetadata([]byte(hw), dirListFilter)
 		if err != nil {
 			t.Errorf("failed to filter metadata: %s", err)
@@ -755,25 +755,25 @@ var tinkerbellFilterMetadataTests = map[string]struct {
 	json   string
 }{
 	"single result (simple)": {
-		filter: Ec2Filters["/user-data"],
+		filter: ec2Filters["/user-data"],
 		result: `#!/bin/bash
 
 echo "Hello world!"`,
 		json: mock.TinkerbellFilterMetadata,
 	},
 	"single result (complex)": {
-		filter: Ec2Filters["/meta-data/public-ipv4"],
+		filter: ec2Filters["/meta-data/public-ipv4"],
 		result: "139.175.86.114",
 		json:   mock.TinkerbellFilterMetadata,
 	},
 	"multiple results (separated list results from hardware)": {
-		filter: Ec2Filters["/meta-data/tags"],
+		filter: ec2Filters["/meta-data/tags"],
 		result: `hello
 test`,
 		json: mock.TinkerbellFilterMetadata,
 	},
 	"multiple results (separated list results from filter)": {
-		filter: Ec2Filters["/meta-data/operating-system"],
+		filter: ec2Filters["/meta-data/operating-system"],
 		result: `distro
 image_tag
 license_activation
@@ -782,7 +782,7 @@ version`,
 		json: mock.TinkerbellFilterMetadata,
 	},
 	"multiple results (/meta-data filter with spot field present)": {
-		filter: Ec2Filters["/meta-data"],
+		filter: ec2Filters["/meta-data"],
 		result: `facility
 hostname
 instance-id
@@ -830,23 +830,23 @@ var processEC2QueryTests = map[string]struct {
 }{
 	"hardware filter result (simple query)": {
 		url:    "/2009-04-04/user-data",
-		result: Ec2Filters["/user-data"],
+		result: ec2Filters["/user-data"],
 	},
 	"hardware filter result (long query)": {
 		url:    "/2009-04-04/meta-data/operating-system/license_activation/state",
-		result: Ec2Filters["/meta-data/operating-system/license_activation/state"],
+		result: ec2Filters["/meta-data/operating-system/license_activation/state"],
 	},
 	"directory-listing filter result": {
 		url:    "/2009-04-04/meta-data/operating-system/license_activation",
-		result: Ec2Filters["/meta-data/operating-system/license_activation"],
+		result: ec2Filters["/meta-data/operating-system/license_activation"],
 	},
 	"directory-listing filter result (base endpoint)": {
 		url:    "/2009-04-04/",
-		result: Ec2Filters[""],
+		result: ec2Filters[""],
 	},
 	"directory-listing result (/meta-data endpoint)": {
 		url:    "/2009-04-04/meta-data",
-		result: Ec2Filters["/meta-data"],
+		result: ec2Filters["/meta-data"],
 	},
 	"invalid query (invalid metadata item)": {
 		url:   "/2009-04-04/invalid",
