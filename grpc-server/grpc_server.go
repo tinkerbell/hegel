@@ -18,7 +18,7 @@ import (
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/tinkerbell/hegel/grpc/hegel"
+	"github.com/tinkerbell/hegel/grpc/protos/hegel"
 	hardwaregetter "github.com/tinkerbell/hegel/hardware-getter"
 	"github.com/tinkerbell/hegel/metrics"
 	"github.com/tinkerbell/hegel/xff"
