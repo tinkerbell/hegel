@@ -1,12 +1,4 @@
 ---
-quay_settings: &quay_settings
-  registry: quay.io
-  repo: quay.io/tinkerbell/hegel
-  username:
-    from_secret: docker_username
-  password:
-    from_secret: docker_password
-
 publish_tmpl: &publish_tmpl
   image: plugins/docker
   depends_on:
@@ -14,6 +6,14 @@ publish_tmpl: &publish_tmpl
     - fmt
     - lint
     - test
+
+quay_settings: &quay_settings
+  registry: quay.io
+  repo: quay.io/tinkerbell/hegel
+  username:
+    from_secret: docker_username
+  password:
+    from_secret: docker_password
 
 quay_settings_pr: &quay_settings_pr
   registry: quay.io
@@ -47,12 +47,13 @@ steps:
   - name: build
     image: golang:1.13-alpine
     commands:
-      - CGO_ENABLED=0 go build
+      - CGO_ENABLED=0 go build ./cmd/hegel
 
   - name: publish pr
     <<: *publish_tmpl
     settings:
       <<: *quay_settings_pr
+      dockerfile: ./cmd/hegel/Dockerfile
       tags:
         - pr${DRONE_PULL_REQUEST}
         - pr${DRONE_PULL_REQUEST}-${DRONE_BUILD_NUMBER}-${DRONE_COMMIT_SHA}
@@ -63,6 +64,7 @@ steps:
     <<: *publish_tmpl
     settings:
       <<: *quay_settings
+      dockerfile: ./cmd/hegel/Dockerfile
       tags:
         - latest
         - ${DRONE_BUILD_NUMBER}-${DRONE_COMMIT_SHA}
@@ -74,6 +76,7 @@ steps:
     <<: *publish_tmpl
     settings:
       <<: *quay_settings
+      dockerfile: ./cmd/hegel/Dockerfile
       tags:
         - ${DRONE_TAG}
     when:
