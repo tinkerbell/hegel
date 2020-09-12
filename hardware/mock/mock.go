@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/packethost/cacher/protos/cacher"
-	hardwaregetter "github.com/tinkerbell/hegel/hardware-getter"
+	"github.com/tinkerbell/hegel/hardware"
 	tink "github.com/tinkerbell/tink/protos/hardware"
 	"google.golang.org/grpc"
 )
@@ -22,8 +22,8 @@ type HardwareGetterMock struct {
 // having to parse the (mock) hardware data `HardwareResp`, the process has been simplified to only match with the constant `UserIP`.
 // Given any other IP inside the get request, ByIP will return an empty piece of hardware regardless of whether or not the IP
 // actually matches the IP inside `HardwareResp`.
-func (hg HardwareGetterMock) ByIP(ctx context.Context, in hardwaregetter.GetRequest, opts ...grpc.CallOption) (hardwaregetter.Hardware, error) {
-	var hw hardwaregetter.Hardware
+func (hg HardwareGetterMock) ByIP(ctx context.Context, in hardware.GetRequest, opts ...grpc.CallOption) (hardware.Hardware, error) {
+	var hw hardware.Hardware
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
 	case "1":
@@ -50,7 +50,7 @@ func (hg HardwareGetterMock) ByIP(ctx context.Context, in hardwaregetter.GetRequ
 	return hw, nil
 }
 
-func (hg HardwareGetterMock) Watch(ctx context.Context, in hardwaregetter.GetRequest, opts ...grpc.CallOption) (hardwaregetter.Watcher, error) {
+func (hg HardwareGetterMock) Watch(ctx context.Context, in hardware.GetRequest, opts ...grpc.CallOption) (hardware.Watcher, error) {
 	// TODO (kdeng3849)
 	return nil, nil
 }

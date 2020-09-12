@@ -13,7 +13,7 @@ import (
 
 	"github.com/packethost/pkg/log"
 	grpcserver "github.com/tinkerbell/hegel/grpc-server"
-	"github.com/tinkerbell/hegel/hardware-getter/mock"
+	"github.com/tinkerbell/hegel/hardware/mock"
 	"github.com/tinkerbell/hegel/metrics"
 	"github.com/tinkerbell/hegel/xff"
 	"github.com/tinkerbell/tink/protos/packet"

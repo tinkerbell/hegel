@@ -19,7 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tinkerbell/hegel/grpc/protos/hegel"
-	hardwaregetter "github.com/tinkerbell/hegel/hardware-getter"
+	"github.com/tinkerbell/hegel/hardware"
 	"github.com/tinkerbell/hegel/metrics"
 	"github.com/tinkerbell/hegel/xff"
 	tink "github.com/tinkerbell/tink/protos/hardware"
@@ -41,7 +41,7 @@ var (
 
 type Server struct {
 	Log            log.Logger
-	HardwareClient hardwaregetter.Client
+	HardwareClient hardware.Client
 
 	SubLock       sync.RWMutex
 	Subscriptions map[string]*Subscription
@@ -282,7 +282,7 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 
 	logger.Info()
 
-	var watch hardwaregetter.Watcher
+	var watch hardware.Watcher
 	var ctx context.Context
 	var cancel context.CancelFunc
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")

@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/packethost/pkg/log"
-	"github.com/tinkerbell/hegel/hardware-getter/mock"
+	"github.com/tinkerbell/hegel/hardware/mock"
 	"github.com/tinkerbell/tink/protos/packet"
 )
 
