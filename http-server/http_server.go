@@ -21,8 +21,7 @@ var (
 	IsCacherAvailableMu sync.RWMutex
 	IsCacherAvailable   bool
 	StartTime           time.Time
-	metricsPort         = flag.Int("http_port", env.Int("HEGEL_HTTP_PORT", 50061),
-		"Port to liten on http")
+	metricsPort         = flag.Int("http_port", env.Int("HEGEL_HTTP_PORT", 50061), "Port to liten on http")
 	customEndpoints string
 	gitRev          string
 	gitRevJSON      []byte

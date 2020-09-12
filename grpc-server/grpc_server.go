@@ -288,9 +288,7 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
 	case "1":
-		hw, err := s.HardwareClient.ByIP(stream.Context(), &tink.GetRequest{
-			Ip: ip,
-		})
+		hw, err := s.HardwareClient.ByIP(stream.Context(), ip)
 
 		if err != nil {
 			return initError(err)
@@ -299,18 +297,14 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		id = hw.(*tink.Hardware).Id
 
 		ctx, cancel = context.WithCancel(stream.Context())
-		watch, err = s.HardwareClient.Watch(ctx, &tink.GetRequest{
-			Id: id,
-		})
+		watch, err = s.HardwareClient.Watch(ctx, id)
 
 		if err != nil {
 			cancel()
 			return initError(err)
 		}
 	default:
-		hw, err := s.HardwareClient.ByIP(stream.Context(), &cacher.GetRequest{
-			IP: ip,
-		})
+		hw, err := s.HardwareClient.ByIP(stream.Context(), ip)
 
 		if err != nil {
 			return initError(err)
@@ -326,9 +320,7 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		id = hwID.(string)
 
 		ctx, cancel = context.WithCancel(stream.Context())
-		watch, err = s.HardwareClient.Watch(ctx, &cacher.GetRequest{
-			ID: id,
-		})
+		watch, err = s.HardwareClient.Watch(ctx, id)
 
 		if err != nil {
 			cancel()
@@ -456,10 +448,7 @@ func GetByIP(ctx context.Context, s *Server, userIP string) ([]byte, error) {
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
 	case "1":
-		req := &tink.GetRequest{
-			Ip: userIP,
-		}
-		resp, err := s.HardwareClient.ByIP(ctx, req)
+		resp, err := s.HardwareClient.ByIP(ctx, userIP)
 
 		if err != nil {
 			return nil, err
@@ -475,10 +464,7 @@ func GetByIP(ctx context.Context, s *Server, userIP string) ([]byte, error) {
 		}
 
 	default:
-		req := &cacher.GetRequest{
-			IP: userIP,
-		}
-		resp, err := s.HardwareClient.ByIP(ctx, req)
+		resp, err := s.HardwareClient.ByIP(ctx, userIP)
 
 		if err != nil {
 			return nil, err
