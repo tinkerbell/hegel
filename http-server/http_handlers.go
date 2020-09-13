@@ -113,18 +113,22 @@ func getMetadata(filter string) http.HandlerFunc {
 			return
 		}
 
+		ehw, err := hw.Export()
+		if err != nil {
+			l.With("error", err).Info("failed to export hardware")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
 		var resp []byte
 		dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 		switch dataModelVersion {
 		case "":
-			resp, err = grpcserver.ExportHardware(hw.Bytes()) // in cacher mode, the "filter" is the exportedHardwareCacher type
-			if err != nil {
-				l.With("error", err).Info("failed to export hardware")
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
+			// in cacher mode, the "filter" is the exportedHardwareCacher type
+			// TODO (kdeng3849) remove the switch case?
+			resp = ehw
 		case "1":
-			resp, err = filterMetadata(hw.Bytes(), filter)
+			resp, err = filterMetadata(ehw, filter)
 			if err != nil {
 				l.With("error", err).Info("failed to filter metadata")
 				w.WriteHeader(http.StatusInternalServerError)
@@ -179,8 +183,17 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var resp []byte
-	resp, err = filterMetadata(hw.Bytes(), filter)
+	ehw, err := hw.Export()
+	if err != nil {
+		l.With("error", err).Info("failed to export hardware")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, err := w.Write([]byte("404 not found"))
+		if err != nil {
+			l.With("error", err).Info("failed to write response")
+		}
+		return
+	}
+	resp, err := filterMetadata(ehw, filter)
 	if err != nil {
 		l.With("error", err).Info("failed to filter metadata")
 	}
