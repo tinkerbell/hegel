@@ -105,7 +105,7 @@ func getMetadata(filter string) http.HandlerFunc {
 		metrics.MetadataRequests.Inc()
 		l := logger.With("userIP", userIP)
 		l.Info("got ip from request")
-		hw, err := grpcserver.GetByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
+		hw, err := hegelServer.HardwareClient.ByIP(context.Background(), userIP)
 		if err != nil {
 			metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
 			l.With("error", err).Info("failed to get hardware by ip")
@@ -117,14 +117,14 @@ func getMetadata(filter string) http.HandlerFunc {
 		dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 		switch dataModelVersion {
 		case "":
-			resp, err = grpcserver.ExportHardware(hw) // in cacher mode, the "filter" is the exportedHardwareCacher type
+			resp, err = grpcserver.ExportHardware(hw.Bytes()) // in cacher mode, the "filter" is the exportedHardwareCacher type
 			if err != nil {
 				l.With("error", err).Info("failed to export hardware")
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 		case "1":
-			resp, err = filterMetadata(hw, filter)
+			resp, err = filterMetadata(hw.Bytes(), filter)
 			if err != nil {
 				l.With("error", err).Info("failed to filter metadata")
 				w.WriteHeader(http.StatusInternalServerError)
@@ -160,7 +160,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 	metrics.MetadataRequests.Inc()
 	l := logger.With("userIP", userIP)
 	l.Info("got ip from request")
-	hw, err := grpcserver.GetByIP(context.Background(), hegelServer, userIP) // returns hardware data as []byte
+	hw, err := hegelServer.HardwareClient.ByIP(context.Background(), userIP)
 	if err != nil {
 		metrics.Errors.WithLabelValues("metadata", "lookup").Inc()
 		l.With("error", err).Info("failed to get hardware by ip")
@@ -180,7 +180,7 @@ func ec2Handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resp []byte
-	resp, err = filterMetadata(hw, filter)
+	resp, err = filterMetadata(hw.Bytes(), filter)
 	if err != nil {
 		l.With("error", err).Info("failed to filter metadata")
 	}
