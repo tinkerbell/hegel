@@ -242,11 +242,11 @@ func (s *Server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetRespo
 	s.Log.With("client", p.Addr, "op", "get").Info()
 	userIP := p.Addr.(*net.TCPAddr).IP.String()
 
-	hw, err := GetByIP(ctx, s, userIP)
+	hw, err := s.HardwareClient.ByIP(ctx, userIP)
 	if err != nil {
 		return nil, err
 	}
-	ehw, err := ExportHardware(hw)
+	ehw, err := ExportHardware(hw.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -276,56 +276,28 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		return initError(errors.New("could not get peer info from client"))
 	}
 
-	var id string
 	ip := p.Addr.(*net.TCPAddr).IP.String()
 	logger = logger.With("ip", ip, "client", p.Addr)
 
 	logger.Info()
 
-	var watch hardware.Watcher
-	var ctx context.Context
-	var cancel context.CancelFunc
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-	switch dataModelVersion {
-	case "1":
-		hw, err := s.HardwareClient.ByIP(stream.Context(), ip)
+	hw, err := s.HardwareClient.ByIP(stream.Context(), ip)
 
-		if err != nil {
-			return initError(err)
-		}
+	if err != nil {
+		return initError(err)
+	}
 
-		id = hw.(*tink.Hardware).Id
+	id, err := hw.ID()
+	if err != nil {
+		return initError(err)
+	}
 
-		ctx, cancel = context.WithCancel(stream.Context())
-		watch, err = s.HardwareClient.Watch(ctx, id)
+	ctx, cancel := context.WithCancel(stream.Context())
+	watch, err := s.HardwareClient.Watch(ctx, id)
 
-		if err != nil {
-			cancel()
-			return initError(err)
-		}
-	default:
-		hw, err := s.HardwareClient.ByIP(stream.Context(), ip)
-
-		if err != nil {
-			return initError(err)
-		}
-
-		hwJSON := make(map[string]interface{})
-		err = json.Unmarshal([]byte(hw.(*cacher.Hardware).JSON), &hwJSON)
-		if err != nil {
-			return initError(err)
-		}
-
-		hwID := hwJSON["id"]
-		id = hwID.(string)
-
-		ctx, cancel = context.WithCancel(stream.Context())
-		watch, err = s.HardwareClient.Watch(ctx, id)
-
-		if err != nil {
-			cancel()
-			return initError(err)
-		}
+	if err != nil {
+		cancel()
+		return initError(err)
 	}
 
 	sub := &Subscription{
@@ -440,41 +412,4 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		retErr = err
 	}
 	return activeError(retErr)
-}
-
-func GetByIP(ctx context.Context, s *Server, userIP string) ([]byte, error) {
-
-	var hw []byte
-	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-	switch dataModelVersion {
-	case "1":
-		resp, err := s.HardwareClient.ByIP(ctx, userIP)
-
-		if err != nil {
-			return nil, err
-		}
-
-		hw, err = json.Marshal(util.HardwareWrapper{Hardware: resp.(*tink.Hardware)})
-		if err != nil {
-			return nil, errors.New("could not marshal hardware")
-		}
-
-		if string(hw) == "{}" {
-			return nil, errors.New("could not find hardware")
-		}
-
-	default:
-		resp, err := s.HardwareClient.ByIP(ctx, userIP)
-
-		if err != nil {
-			return nil, err
-		}
-
-		hw = []byte(resp.(*cacher.Hardware).JSON)
-		if string(hw) == "" {
-			return nil, errors.New("could not find hardware")
-		}
-	}
-
-	return hw, nil
 }

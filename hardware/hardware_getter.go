@@ -2,11 +2,13 @@ package hardware
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	cacherClient "github.com/packethost/cacher/client"
 	"github.com/packethost/pkg/env"
 	"github.com/pkg/errors"
 	tinkClient "github.com/tinkerbell/tink/client"
+	"github.com/tinkerbell/tink/util"
 
 	"github.com/packethost/cacher/protos/cacher"
 	tink "github.com/tinkerbell/tink/protos/hardware"
@@ -23,7 +25,10 @@ type Client interface {
 	Watch(ctx context.Context, id string, opts ...grpc.CallOption) (Watcher, error)
 }
 
-type Hardware interface{}
+type Hardware interface{
+	Bytes() []byte
+	ID() (string, error)
+}
 type Watcher interface{}
 
 type CacherClient struct {
@@ -32,6 +37,14 @@ type CacherClient struct {
 
 type TinkerbellClient struct {
 	client tink.HardwareServiceClient
+}
+
+type CacherHardware struct {
+	hardware *cacher.Hardware
+}
+
+type TinkerbellHardware struct {
+	hardware *tink.Hardware
 }
 
 func New() (Client, error) {
@@ -63,7 +76,7 @@ func (hg CacherClient) ByIP(ctx context.Context, ip string, opts ...grpc.CallOpt
 	if err != nil {
 		return nil, err
 	}
-	return hw, nil
+	return &CacherHardware{hw}, nil
 }
 
 func (hg CacherClient) Watch(ctx context.Context, id string, opts ...grpc.CallOption) (Watcher, error) {
@@ -85,7 +98,7 @@ func (hg TinkerbellClient) ByIP(ctx context.Context, ip string, opts ...grpc.Cal
 	if err != nil {
 		return nil, err
 	}
-	return hw, nil
+	return &TinkerbellHardware{hw}, nil
 }
 
 func (hg TinkerbellClient) Watch(ctx context.Context, id string, opts ...grpc.CallOption) (Watcher, error) {
@@ -97,4 +110,30 @@ func (hg TinkerbellClient) Watch(ctx context.Context, id string, opts ...grpc.Ca
 		return nil, err
 	}
 	return w, nil
+}
+
+func (hw *CacherHardware) Bytes() []byte {
+	return []byte(hw.hardware.JSON)
+}
+
+func (hw *CacherHardware) ID() (string, error) {
+	hwJSON := make(map[string]interface{})
+	err := json.Unmarshal([]byte(hw.hardware.JSON), &hwJSON)
+	if err != nil {
+		return "", err
+	}
+
+	hwID := hwJSON["id"]
+	id := hwID.(string)
+
+	return id, err
+}
+
+func (hw *TinkerbellHardware) Bytes() []byte {
+	b, _ := json.Marshal(util.HardwareWrapper{Hardware: hw.hardware})
+	return b
+}
+
+func (hw *TinkerbellHardware) ID() (string, error) {
+	return hw.hardware.Id, nil
 }
