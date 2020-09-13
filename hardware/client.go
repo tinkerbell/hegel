@@ -45,12 +45,12 @@ type clientTinkerbell struct {
 	client tink.HardwareServiceClient
 }
 
-type hardwareCacher struct {
-	hardware *cacher.Hardware
+type HardwareCacher struct {
+	Hardware *cacher.Hardware
 }
 
-type hardwareTinkerbell struct {
-	hardware *tink.Hardware
+type HardwareTinkerbell struct {
+	Hardware *tink.Hardware
 }
 
 type watcherCacher struct {
@@ -92,7 +92,7 @@ func (hg clientCacher) ByIP(ctx context.Context, ip string, opts ...grpc.CallOpt
 	if err != nil {
 		return nil, err
 	}
-	return &hardwareCacher{hw}, nil
+	return &HardwareCacher{hw}, nil
 }
 
 // Watch returns a Cacher watch client on the hardware with the specified ID
@@ -116,7 +116,7 @@ func (hg clientTinkerbell) ByIP(ctx context.Context, ip string, opts ...grpc.Cal
 	if err != nil {
 		return nil, err
 	}
-	return &hardwareTinkerbell{hw}, nil
+	return &HardwareTinkerbell{hw}, nil
 }
 
 // Watch returns a Tink watch client on the hardware with the specified ID
@@ -132,10 +132,10 @@ func (hg clientTinkerbell) Watch(ctx context.Context, id string, opts ...grpc.Ca
 }
 
 // Export formats the piece of hardware to be returned in responses to clients
-func (hw *hardwareCacher) Export() ([]byte, error) {
+func (hw *HardwareCacher) Export() ([]byte, error) {
 	exported := &exportedHardwareCacher{}
 
-	err := json.Unmarshal([]byte(hw.hardware.JSON), exported)
+	err := json.Unmarshal([]byte(hw.Hardware.JSON), exported)
 	if err != nil {
 		return nil, err
 	}
@@ -143,9 +143,9 @@ func (hw *hardwareCacher) Export() ([]byte, error) {
 }
 
 // ID returns the hardware ID
-func (hw *hardwareCacher) ID() (string, error) {
+func (hw *HardwareCacher) ID() (string, error) {
 	hwJSON := make(map[string]interface{})
-	err := json.Unmarshal([]byte(hw.hardware.JSON), &hwJSON)
+	err := json.Unmarshal([]byte(hw.Hardware.JSON), &hwJSON)
 	if err != nil {
 		return "", err
 	}
@@ -157,13 +157,13 @@ func (hw *hardwareCacher) ID() (string, error) {
 }
 
 // Export formats the piece of hardware to be returned in responses to clients
-func (hw *hardwareTinkerbell) Export() ([]byte, error) {
-	return json.Marshal(util.HardwareWrapper{Hardware: hw.hardware})
+func (hw *HardwareTinkerbell) Export() ([]byte, error) {
+	return json.Marshal(util.HardwareWrapper{Hardware: hw.Hardware})
 }
 
 // ID returns the hardware ID
-func (hw *hardwareTinkerbell) ID() (string, error) {
-	return hw.hardware.Id, nil
+func (hw *HardwareTinkerbell) ID() (string, error) {
+	return hw.Hardware.Id, nil
 }
 
 // Recv receives a piece of hardware from the Cacher watch client
@@ -172,7 +172,7 @@ func (w *watcherCacher) Recv() (Hardware, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &hardwareCacher{hw}, nil
+	return &HardwareCacher{hw}, nil
 }
 
 // Recv receives a piece of hardware from the Tink watch client
@@ -181,5 +181,5 @@ func (w *watcherTinkerbell) Recv() (Hardware, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &hardwareTinkerbell{hw}, nil
+	return &HardwareTinkerbell{hw}, nil
 }

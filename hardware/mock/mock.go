@@ -7,7 +7,6 @@ import (
 
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/tinkerbell/hegel/hardware"
-	tink "github.com/tinkerbell/tink/protos/hardware"
 	"google.golang.org/grpc"
 )
 
@@ -27,7 +26,7 @@ func (hg HardwareGetterMock) ByIP(ctx context.Context, ip string, opts ...grpc.C
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
 	case "1":
-		hw = &tink.Hardware{}
+		hw = &hardware.HardwareTinkerbell{}
 
 		if ip != UserIP {
 			return hw, nil
@@ -39,10 +38,10 @@ func (hg HardwareGetterMock) ByIP(ctx context.Context, ip string, opts ...grpc.C
 		}
 	default:
 		if ip != UserIP {
-			return &cacher.Hardware{}, nil
+			return &hardware.HardwareCacher{}, nil
 		}
 
-		hw = &cacher.Hardware{JSON: hg.HardwareResp}
+		hw = &hardware.HardwareCacher{Hardware: &cacher.Hardware{JSON: hg.HardwareResp}}
 	}
 
 	return hw, nil
