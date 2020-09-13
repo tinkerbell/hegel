@@ -26,7 +26,7 @@ type Client interface {
 }
 
 type Hardware interface {
-	Bytes() []byte
+	Export() ([]byte, error)
 	ID() (string, error)
 }
 type Watcher interface {
@@ -122,8 +122,14 @@ func (hg clientTinkerbell) Watch(ctx context.Context, id string, opts ...grpc.Ca
 	return &watcherTinkerbell{w}, nil
 }
 
-func (hw *hardwareCacher) Bytes() []byte {
-	return []byte(hw.hardware.JSON)
+func (hw *hardwareCacher) Export() ([]byte, error) {
+	exported := &exportedHardwareCacher{}
+
+	err := json.Unmarshal([]byte(hw.hardware.JSON), exported)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(exported)
 }
 
 func (hw *hardwareCacher) ID() (string, error) {
@@ -139,9 +145,8 @@ func (hw *hardwareCacher) ID() (string, error) {
 	return id, err
 }
 
-func (hw *hardwareTinkerbell) Bytes() []byte {
-	b, _ := json.Marshal(util.HardwareWrapper{Hardware: hw.hardware})
-	return b
+func (hw *hardwareTinkerbell) Export() ([]byte, error) {
+	return json.Marshal(util.HardwareWrapper{Hardware: hw.hardware})
 }
 
 func (hw *hardwareTinkerbell) ID() (string, error) {
