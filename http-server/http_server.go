@@ -22,11 +22,11 @@ var (
 	IsCacherAvailable   bool
 	StartTime           time.Time
 	metricsPort         = flag.Int("http_port", env.Int("HEGEL_HTTP_PORT", 50061), "Port to liten on http")
-	customEndpoints string
-	gitRev          string
-	gitRevJSON      []byte
-	logger          log.Logger
-	hegelServer     *grpcserver.Server
+	customEndpoints     string
+	gitRev              string
+	gitRevJSON          []byte
+	logger              log.Logger
+	hegelServer         *grpcserver.Server
 )
 
 func Serve(ctx context.Context, l log.Logger, srv *grpcserver.Server, gRev string, time time.Time) error {

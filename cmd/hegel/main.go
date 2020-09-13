@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	GitRev   string
+	GitRev string
 	logger log.Logger
 )
 
