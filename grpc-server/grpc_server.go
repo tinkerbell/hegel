@@ -7,13 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"sync"
 	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/packethost/cacher/protos/cacher"
 	"github.com/packethost/pkg/env"
 	"github.com/packethost/pkg/log"
 	"github.com/pkg/errors"
@@ -22,8 +20,6 @@ import (
 	"github.com/tinkerbell/hegel/hardware"
 	"github.com/tinkerbell/hegel/metrics"
 	"github.com/tinkerbell/hegel/xff"
-	tink "github.com/tinkerbell/tink/protos/hardware"
-	"github.com/tinkerbell/tink/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -346,41 +342,17 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	errs := make(chan error, 1)
 	go func() {
 		for {
-			var hw []byte
-			dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
-			switch dataModelVersion {
-			case "1":
-				wt := watch.(tink.HardwareService_WatchClient)
-				resp, err := wt.Recv()
-				if err != nil {
-					if err == io.EOF {
-						err = status.Error(codes.OK, "stream ended")
-					}
-					errs <- err
-					close(sub.updateChan)
-					return
+			hw, err := watch.Recv()
+			if err != nil {
+				if err == io.EOF {
+					err = status.Error(codes.OK, "stream ended")
 				}
-				hw, err = json.Marshal(util.HardwareWrapper{Hardware: resp})
-				if err != nil {
-					errs <- errors.New("could not marshal hardware")
-					close(sub.updateChan)
-					return
-				}
-			default:
-				wc := watch.(cacher.Cacher_WatchClient)
-				resp, err := wc.Recv()
-				if err != nil {
-					if err == io.EOF {
-						err = status.Error(codes.OK, "stream ended")
-					}
-					errs <- err
-					close(sub.updateChan)
-					return
-				}
-				hw = []byte(resp.JSON)
+				errs <- err
+				close(sub.updateChan)
+				return
 			}
 
-			ehw, err := ExportHardware(hw)
+			ehw, err := ExportHardware(hw.Bytes())
 			if err != nil {
 				errs <- err
 				close(sub.updateChan)

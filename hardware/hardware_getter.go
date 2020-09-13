@@ -49,6 +49,14 @@ type hardwareTinkerbell struct {
 	hardware *tink.Hardware
 }
 
+type watcherCacher struct {
+	client cacher.Cacher_WatchClient
+}
+
+type watcherTinkerbell struct {
+	client tink.HardwareService_WatchClient
+}
+
 func New() (Client, error) {
 	var hg Client
 
@@ -89,7 +97,7 @@ func (hg clientCacher) Watch(ctx context.Context, id string, opts ...grpc.CallOp
 	if err != nil {
 		return nil, err
 	}
-	return w, nil
+	return &watcherCacher{w}, nil
 }
 
 func (hg clientTinkerbell) ByIP(ctx context.Context, ip string, opts ...grpc.CallOption) (Hardware, error) {
@@ -111,7 +119,7 @@ func (hg clientTinkerbell) Watch(ctx context.Context, id string, opts ...grpc.Ca
 	if err != nil {
 		return nil, err
 	}
-	return w, nil
+	return &watcherTinkerbell{w}, nil
 }
 
 func (hw *hardwareCacher) Bytes() []byte {
@@ -138,4 +146,20 @@ func (hw *hardwareTinkerbell) Bytes() []byte {
 
 func (hw *hardwareTinkerbell) ID() (string, error) {
 	return hw.hardware.Id, nil
+}
+
+func (w *watcherCacher) Recv() (Hardware, error) {
+	hw, err := w.client.Recv()
+	if err != nil {
+		return nil, err
+	}
+	return &hardwareCacher{hw}, nil
+}
+
+func (w *watcherTinkerbell) Recv() (Hardware, error) {
+	hw, err := w.client.Recv()
+	if err != nil {
+		return nil, err
+	}
+	return &hardwareTinkerbell{hw}, nil
 }
