@@ -54,7 +54,7 @@ type subscription struct {
 func NewServer(l log.Logger, hc hardware.Client) (*Server, error) {
 	if hc == nil {
 		var err error
-		hc, err = hardware.New()
+		hc, err = hardware.NewClient()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create hegel server")
 		}

@@ -61,8 +61,8 @@ type watcherTinkerbell struct {
 	client tink.HardwareService_WatchClient
 }
 
-// New returns a new hardware Client, configured appropriately according to the mode (Cacher or Tink) Hegel is running in
-func New() (Client, error) {
+// NewClient returns a new hardware Client, configured appropriately according to the mode (Cacher or Tink) Hegel is running in
+func NewClient() (Client, error) {
 	var hg Client
 
 	switch dataModelVersion {
