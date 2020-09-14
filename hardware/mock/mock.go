@@ -3,6 +3,7 @@ package mock
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 
 	"github.com/packethost/cacher/protos/cacher"
@@ -29,7 +30,7 @@ func (hg HardwareGetterMock) ByIP(ctx context.Context, ip string, opts ...grpc.C
 		hw = &hardware.HardwareTinkerbell{}
 
 		if ip != UserIP {
-			return hw, nil
+			return hw, errors.New("rpc error: code = Unknown desc = unexpected end of JSON input")
 		}
 
 		err := json.Unmarshal([]byte(hg.HardwareResp), hw)
@@ -38,7 +39,7 @@ func (hg HardwareGetterMock) ByIP(ctx context.Context, ip string, opts ...grpc.C
 		}
 	default:
 		if ip != UserIP {
-			return &hardware.HardwareCacher{}, nil
+			return &hardware.HardwareCacher{}, errors.New("rpc error: code = Unknown desc = DB is not ready")
 		}
 
 		hw = &hardware.HardwareCacher{Hardware: &cacher.Hardware{JSON: hg.HardwareResp}}

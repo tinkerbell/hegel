@@ -46,11 +46,11 @@ type clientTinkerbell struct {
 }
 
 type HardwareCacher struct {
-	Hardware *cacher.Hardware
+	*cacher.Hardware
 }
 
 type HardwareTinkerbell struct {
-	Hardware *tink.Hardware
+	*tink.Hardware
 }
 
 type watcherCacher struct {
@@ -135,7 +135,7 @@ func (hg clientTinkerbell) Watch(ctx context.Context, id string, opts ...grpc.Ca
 func (hw *HardwareCacher) Export() ([]byte, error) {
 	exported := &exportedHardwareCacher{}
 
-	err := json.Unmarshal([]byte(hw.Hardware.JSON), exported)
+	err := json.Unmarshal([]byte(hw.JSON), exported)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func (hw *HardwareCacher) Export() ([]byte, error) {
 // ID returns the hardware ID
 func (hw *HardwareCacher) ID() (string, error) {
 	hwJSON := make(map[string]interface{})
-	err := json.Unmarshal([]byte(hw.Hardware.JSON), &hwJSON)
+	err := json.Unmarshal([]byte(hw.JSON), &hwJSON)
 	if err != nil {
 		return "", err
 	}
@@ -158,12 +158,12 @@ func (hw *HardwareCacher) ID() (string, error) {
 
 // Export formats the piece of hardware to be returned in responses to clients
 func (hw *HardwareTinkerbell) Export() ([]byte, error) {
-	return json.Marshal(util.HardwareWrapper{Hardware: hw.Hardware})
+	return json.Marshal(util.HardwareWrapper(*hw))
 }
 
 // ID returns the hardware ID
 func (hw *HardwareTinkerbell) ID() (string, error) {
-	return hw.Hardware.Id, nil
+	return hw.Id, nil
 }
 
 // Recv receives a piece of hardware from the Cacher watch client
