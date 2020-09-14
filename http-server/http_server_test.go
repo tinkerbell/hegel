@@ -24,8 +24,11 @@ func TestMain(m *testing.M) {
 	logger = l.Package("httpserver")
 	metrics.Init(l)
 
-	hegelServer = &grpcserver.Server{
-		Log: logger,
+	var err error
+	hc := mock.HardwareClient{}
+	hegelServer, err = grpcserver.NewServer(logger, hc)
+	if err != nil {
+		logger.Fatal(err, "failed to create hegel server")
 	}
 
 	os.Exit(m.Run())
@@ -43,7 +46,7 @@ func TestTrustedProxies(t *testing.T) {
 	for name, test := range trustedProxiesTests {
 		t.Run(name, func(t *testing.T) {
 			os.Setenv("TRUSTED_PROXIES", test.trustedProxies)
-			hegelServer.HardwareClient = mock.HardwareClient{Data: test.json}
+			hegelServer.SetHardwareClient(mock.HardwareClient{Data: test.json})
 
 			mux := &http.ServeMux{}
 			mux.HandleFunc("/2009-04-04/", ec2Handler)
@@ -132,7 +135,7 @@ func TestGetMetadataTinkerbell(t *testing.T) {
 
 	for name, test := range tinkerbellTests {
 		t.Log(name)
-		hegelServer.HardwareClient = mock.HardwareClient{Data: test.json}
+		hegelServer.SetHardwareClient(mock.HardwareClient{Data: test.json})
 
 		mux := &http.ServeMux{}
 
@@ -184,7 +187,7 @@ func TestGetMetadataTinkerbellKant(t *testing.T) {
 
 	for name, test := range tinkerbellKantTests {
 		t.Log(name)
-		hegelServer.HardwareClient = mock.HardwareClient{Data: test.json}
+		hegelServer.SetHardwareClient(mock.HardwareClient{Data: test.json})
 
 		mux := &http.ServeMux{}
 
@@ -224,7 +227,7 @@ func TestRegisterEndpoints(t *testing.T) {
 
 	for name, test := range registerEndpointTests {
 		t.Log(name)
-		hegelServer.HardwareClient = mock.HardwareClient{Data: test.json}
+		hegelServer.SetHardwareClient(mock.HardwareClient{Data: test.json})
 
 		os.Unsetenv("CUSTOM_ENDPOINTS")
 		if test.customEndpoints != "" {
@@ -270,7 +273,7 @@ func TestEC2Endpoint(t *testing.T) {
 
 	for name, test := range tinkerbellEC2Tests {
 		t.Run(name, func(t *testing.T) {
-			hegelServer.HardwareClient = mock.HardwareClient{Data: test.json}
+			hegelServer.SetHardwareClient(mock.HardwareClient{Data: test.json})
 
 			http.DefaultServeMux = &http.ServeMux{} // reset registered patterns
 

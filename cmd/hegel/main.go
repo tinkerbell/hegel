@@ -34,7 +34,7 @@ func main() {
 
 	metrics.State.Set(metrics.Initializing)
 
-	hegelServer, err := grpcserver.NewServer(l)
+	hegelServer, err := grpcserver.NewServer(l, nil)
 	if err != nil {
 		l.Fatal(err, "failed to create hegel server")
 	}

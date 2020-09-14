@@ -51,15 +51,18 @@ type subscription struct {
 	updateChan   chan []byte
 }
 
-func NewServer(l log.Logger) (*Server, error) {
-	hg, err := hardware.New()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create hegel server")
+func NewServer(l log.Logger, hc hardware.Client) (*Server, error) {
+	if hc == nil {
+		var err error
+		hc, err = hardware.New()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create hegel server")
+		}
 	}
 
 	s := &Server{
 		log:            l,
-		hardwareClient: hg,
+		hardwareClient: hc,
 		subscriptions:  make(map[string]*subscription),
 	}
 	return s, nil
@@ -135,6 +138,10 @@ func (s *Server) SubLock() *sync.RWMutex {
 
 func (s *Server) Subscriptions() map[string]*subscription {
 	return s.subscriptions
+}
+
+func (s *Server) SetHardwareClient(hc hardware.Client) {
+	s.hardwareClient = hc
 }
 
 func (s *Server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetResponse, error) {

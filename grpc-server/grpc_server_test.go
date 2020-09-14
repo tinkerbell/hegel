@@ -27,11 +27,11 @@ func TestGetByIPCacher(t *testing.T) {
 		}
 		logger := l.Package("grpcserver")
 
-		hegelTestServer := &Server{
-			Log:            logger,
-			HardwareClient: mock.HardwareClient{Data: test.json},
+		hegelTestServer, err := NewServer(logger, mock.HardwareClient{Data: test.json})
+		if err != nil {
+			t.Fatal(err, "failed to create hegel server")
 		}
-		ehw, err := hegelTestServer.HardwareClient.ByIP(context.Background(), mock.UserIP)
+		ehw, err := hegelTestServer.HardwareClient().ByIP(context.Background(), mock.UserIP)
 		if err != nil {
 			t.Fatal("unexpected error while getting hardware by ip:", err)
 		}
@@ -100,11 +100,11 @@ func TestGetByIPTinkerbell(t *testing.T) {
 		}
 		logger := l.Package("grpcserver")
 
-		hegelTestServer := &Server{
-			Log:            logger,
-			HardwareClient: mock.HardwareClient{Data: test.json},
+		hegelTestServer, err := NewServer(logger, mock.HardwareClient{Data: test.json})
+		if err != nil {
+			t.Fatal(err, "failed to create hegel server")
 		}
-		ehw, err := hegelTestServer.HardwareClient.ByIP(context.Background(), mock.UserIP)
+		ehw, err := hegelTestServer.HardwareClient().ByIP(context.Background(), mock.UserIP)
 		if err != nil {
 			t.Fatalf("ByIP returned unexpected error: %v", err)
 		}
