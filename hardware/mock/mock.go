@@ -11,18 +11,18 @@ import (
 	"google.golang.org/grpc"
 )
 
-// HardwareGetterMock is a mock implentation of the hardwareGetter interface
+// HardwareClient is a mock implentation of the hardwareGetter interface
 // Data represents the hardware data stored inside tink db
-type HardwareGetterMock struct {
+type HardwareClient struct {
 	Data string
 }
 
 // ByIP mocks the retrieval a piece of hardware from tink/cacher by ip
 // In order to simulate the process of finding the piece of hardware that matches the IP provided in the get request without
-// having to parse the (mock) hardware data `HardwareGetterMock.Data`, the process has been simplified to only match with the constant `UserIP`.
+// having to parse the (mock) hardware data `HardwareClient.Data`, the process has been simplified to only match with the constant `UserIP`.
 // Given any other IP inside the get request, ByIP will return an empty piece of hardware regardless of whether or not the IP
 // actually matches the IP inside `Data`.
-func (hg HardwareGetterMock) ByIP(ctx context.Context, ip string, opts ...grpc.CallOption) (hardware.Hardware, error) {
+func (hg HardwareClient) ByIP(ctx context.Context, ip string, opts ...grpc.CallOption) (hardware.Hardware, error) {
 	var hw hardware.Hardware
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	switch dataModelVersion {
@@ -48,7 +48,7 @@ func (hg HardwareGetterMock) ByIP(ctx context.Context, ip string, opts ...grpc.C
 	return hw, nil
 }
 
-func (hg HardwareGetterMock) Watch(ctx context.Context, id string, opts ...grpc.CallOption) (hardware.Watcher, error) {
+func (hg HardwareClient) Watch(ctx context.Context, id string, opts ...grpc.CallOption) (hardware.Watcher, error) {
 	// TODO (kdeng3849)
 	return nil, nil
 }
