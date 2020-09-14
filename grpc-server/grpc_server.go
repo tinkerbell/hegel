@@ -35,20 +35,34 @@ var (
 )
 
 type Server struct {
-	Log            log.Logger
-	HardwareClient hardware.Client
+	log            log.Logger
+	hardwareClient hardware.Client
 
-	SubLock       sync.RWMutex
-	Subscriptions map[string]*Subscription
+	subLock       *sync.RWMutex
+	subscriptions map[string]*subscription
 }
 
-type Subscription struct {
+type subscription struct {
 	ID           string        `json:"id"`
 	IP           string        `json:"ip"`
 	InitDuration time.Duration `json:"init_duration"`
 	StartedAt    time.Time     `json:"started_at"`
 	cancel       func()
 	updateChan   chan []byte
+}
+
+func NewServer(l log.Logger) (*Server, error) {
+	hg, err := hardware.New()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create hegel server")
+	}
+
+	s := &Server{
+		log:            l,
+		hardwareClient: hg,
+		subscriptions:  make(map[string]*subscription),
+	}
+	return s, nil
 }
 
 func Serve(ctx context.Context, l log.Logger, srv *Server) error {
@@ -107,15 +121,31 @@ func Serve(ctx context.Context, l log.Logger, srv *Server) error {
 	return nil
 }
 
+func (s *Server) Log() log.Logger {
+	return s.log
+}
+
+func (s *Server) HardwareClient() hardware.Client {
+	return s.hardwareClient
+}
+
+func (s *Server) SubLock() *sync.RWMutex {
+	return s.subLock
+}
+
+func (s *Server) Subscriptions() map[string]*subscription {
+	return s.subscriptions
+}
+
 func (s *Server) Get(ctx context.Context, in *hegel.GetRequest) (*hegel.GetResponse, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
 		return nil, errors.New("could not get peer info from client")
 	}
-	s.Log.With("client", p.Addr, "op", "get").Info()
+	s.log.With("client", p.Addr, "op", "get").Info()
 	userIP := p.Addr.(*net.TCPAddr).IP.String()
 
-	hw, err := s.HardwareClient.ByIP(ctx, userIP)
+	hw, err := s.hardwareClient.ByIP(ctx, userIP)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +164,7 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	metrics.Subscriptions.WithLabelValues("initializing").Inc()
 	timer := prometheus.NewTimer(metrics.InitDuration)
 
-	logger := s.Log.With("op", "subscribe")
+	logger := s.log.With("op", "subscribe")
 
 	initError := func(err error) error {
 		logger.Error(err)
@@ -154,7 +184,7 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 
 	logger.Info()
 
-	hw, err := s.HardwareClient.ByIP(stream.Context(), ip)
+	hw, err := s.hardwareClient.ByIP(stream.Context(), ip)
 
 	if err != nil {
 		return initError(err)
@@ -166,14 +196,14 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	}
 
 	ctx, cancel := context.WithCancel(stream.Context())
-	watch, err := s.HardwareClient.Watch(ctx, id)
+	watch, err := s.hardwareClient.Watch(ctx, id)
 
 	if err != nil {
 		cancel()
 		return initError(err)
 	}
 
-	sub := &Subscription{
+	sub := &subscription{
 		ID:           id,
 		IP:           ip,
 		StartedAt:    startedAt,
@@ -182,10 +212,10 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 		updateChan:   make(chan []byte, 1),
 	}
 
-	s.SubLock.Lock()
-	old := s.Subscriptions[id]
-	s.Subscriptions[id] = sub
-	s.SubLock.Unlock()
+	s.subLock.Lock()
+	old := s.subscriptions[id]
+	s.subscriptions[id] = sub
+	s.subLock.Unlock()
 
 	// Disconnect previous client if a client is already connected for this hardware id
 	if old != nil {
@@ -193,12 +223,12 @@ func (s *Server) Subscribe(in *hegel.SubscribeRequest, stream hegel.Hegel_Subscr
 	}
 
 	defer func() {
-		s.SubLock.Lock()
-		defer s.SubLock.Unlock()
+		s.subLock.Lock()
+		defer s.subLock.Unlock()
 		// Check if subscription for hardware id exists.
 		// If the subscriptions exists, make sure it has not been replaced by a new connection.
-		if cSub := s.Subscriptions[id]; cSub == sub {
-			delete(s.Subscriptions, id)
+		if cSub := s.subscriptions[id]; cSub == sub {
+			delete(s.subscriptions, id)
 		}
 	}()
 

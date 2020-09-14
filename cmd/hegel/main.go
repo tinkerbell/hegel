@@ -12,7 +12,6 @@ import (
 
 	"github.com/packethost/pkg/log"
 	grpcserver "github.com/tinkerbell/hegel/grpc-server"
-	"github.com/tinkerbell/hegel/hardware"
 	httpserver "github.com/tinkerbell/hegel/http-server"
 	"github.com/tinkerbell/hegel/metrics"
 )
@@ -35,15 +34,9 @@ func main() {
 
 	metrics.State.Set(metrics.Initializing)
 
-	hg, err := hardware.New()
+	hegelServer, err := grpcserver.NewServer(l)
 	if err != nil {
 		l.Fatal(err, "failed to create hegel server")
-	}
-
-	hegelServer := &grpcserver.Server{
-		Log:            l,
-		HardwareClient: hg,
-		Subscriptions:  make(map[string]*grpcserver.Subscription),
 	}
 
 	c := make(chan os.Signal)
