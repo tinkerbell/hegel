@@ -12,16 +12,16 @@ import (
 )
 
 // HardwareGetterMock is a mock implentation of the hardwareGetter interface
-// HardwareResp represents the hardware data stored inside tink db
+// Data represents the hardware data stored inside tink db
 type HardwareGetterMock struct {
-	HardwareResp string
+	Data string
 }
 
 // ByIP mocks the retrieval a piece of hardware from tink/cacher by ip
 // In order to simulate the process of finding the piece of hardware that matches the IP provided in the get request without
-// having to parse the (mock) hardware data `HardwareResp`, the process has been simplified to only match with the constant `UserIP`.
+// having to parse the (mock) hardware data `HardwareGetterMock.Data`, the process has been simplified to only match with the constant `UserIP`.
 // Given any other IP inside the get request, ByIP will return an empty piece of hardware regardless of whether or not the IP
-// actually matches the IP inside `HardwareResp`.
+// actually matches the IP inside `Data`.
 func (hg HardwareGetterMock) ByIP(ctx context.Context, ip string, opts ...grpc.CallOption) (hardware.Hardware, error) {
 	var hw hardware.Hardware
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
@@ -33,7 +33,7 @@ func (hg HardwareGetterMock) ByIP(ctx context.Context, ip string, opts ...grpc.C
 			return hw, errors.New("rpc error: code = Unknown desc = unexpected end of JSON input")
 		}
 
-		err := json.Unmarshal([]byte(hg.HardwareResp), hw)
+		err := json.Unmarshal([]byte(hg.Data), hw)
 		if err != nil {
 			return nil, err
 		}
@@ -42,7 +42,7 @@ func (hg HardwareGetterMock) ByIP(ctx context.Context, ip string, opts ...grpc.C
 			return &hardware.HardwareCacher{}, errors.New("rpc error: code = Unknown desc = DB is not ready")
 		}
 
-		hw = &hardware.HardwareCacher{Hardware: &cacher.Hardware{JSON: hg.HardwareResp}}
+		hw = &hardware.HardwareCacher{Hardware: &cacher.Hardware{JSON: hg.Data}}
 	}
 
 	return hw, nil
