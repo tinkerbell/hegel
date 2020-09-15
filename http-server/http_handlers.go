@@ -58,9 +58,9 @@ func versionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	IsCacherAvailableMu.RLock()
-	isCacherAvailableTemp := IsCacherAvailable
-	IsCacherAvailableMu.RUnlock()
+	isCacherAvailableMu.RLock()
+	isCacherAvailableTemp := isCacherAvailable
+	isCacherAvailableMu.RUnlock()
 
 	res := struct {
 		GitRev          string  `json:"git_rev"`

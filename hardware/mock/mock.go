@@ -17,6 +17,11 @@ type HardwareClient struct {
 	Data string
 }
 
+func (hg HardwareClient) All(ctx context.Context, opts ...grpc.CallOption) (hardware.AllClient, error) {
+	// TODO (kdeng3849)
+	return nil, nil
+}
+
 // ByIP mocks the retrieval a piece of hardware from tink/cacher by ip
 // In order to simulate the process of finding the piece of hardware that matches the IP provided in the get request without
 // having to parse the (mock) hardware data `HardwareClient.Data`, the process has been simplified to only match with the constant `UserIP`.

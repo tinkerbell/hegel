@@ -22,9 +22,12 @@ var (
 
 // Client acts as the messenger between Hegel and Cacher/Tink
 type Client interface {
+	All(ctx context.Context, opts ...grpc.CallOption) (AllClient, error)
 	ByIP(ctx context.Context, id string, opts ...grpc.CallOption) (Hardware, error)
 	Watch(ctx context.Context, id string, opts ...grpc.CallOption) (Watcher, error)
 }
+
+type AllClient interface{}
 
 // Hardware is the interface for Cacher/Tink hardware types
 type Hardware interface {
@@ -83,6 +86,16 @@ func NewClient() (Client, error) {
 	return hg, nil
 }
 
+// All retrieves all the pieces of hardware stored in Cacher
+func (hg clientCacher) All(ctx context.Context, opts ...grpc.CallOption) (AllClient, error) {
+	in := &cacher.Empty{}
+	all, err := hg.client.All(ctx, in, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return all, nil
+}
+
 // ByIP retrieves from Cacher the piece of hardware with the specified IP
 func (hg clientCacher) ByIP(ctx context.Context, ip string, opts ...grpc.CallOption) (Hardware, error) {
 	in := &cacher.GetRequest{
@@ -105,6 +118,16 @@ func (hg clientCacher) Watch(ctx context.Context, id string, opts ...grpc.CallOp
 		return nil, err
 	}
 	return &watcherCacher{w}, nil
+}
+
+// All retrieves all the pieces of hardware stored in Cacher
+func (hg clientTinkerbell) All(ctx context.Context, opts ...grpc.CallOption) (AllClient, error) {
+	in := &tink.Empty{}
+	all, err := hg.client.All(ctx, in, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return all, nil
 }
 
 // ByIP retrieves from Tink the piece of hardware with the specified IP
