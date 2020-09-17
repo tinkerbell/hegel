@@ -125,7 +125,7 @@ func getMetadata(filter string) http.HandlerFunc {
 		switch dataModelVersion {
 		case "":
 			// in cacher mode, the "filter" is the exportedHardwareCacher type
-			// TODO (kdeng3849) remove the switch case?
+			// TODO (kdeng3849) figure out a way to remove the switch case
 			resp = ehw
 		case "1":
 			resp, err = filterMetadata(ehw, filter)

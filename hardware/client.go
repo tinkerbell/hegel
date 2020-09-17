@@ -156,7 +156,7 @@ func (hg clientTinkerbell) Watch(ctx context.Context, id string, opts ...grpc.Ca
 
 // Export formats the piece of hardware to be returned in responses to clients
 func (hw *HardwareCacher) Export() ([]byte, error) {
-	exported := &exportedHardwareCacher{}
+	exported := &ExportedHardwareCacher{}
 
 	err := json.Unmarshal([]byte(hw.JSON), exported)
 	if err != nil {

@@ -4,16 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"reflect"
 	"testing"
 
 	"github.com/packethost/pkg/log"
+	"github.com/tinkerbell/hegel/hardware"
 	"github.com/tinkerbell/hegel/hardware/mock"
 	"github.com/tinkerbell/tink/protos/packet"
+	"google.golang.org/grpc/peer"
 )
 
-func TestGetByIPCacher(t *testing.T) {
+func TestGetCacher(t *testing.T) {
 	for name, test := range cacherGrpcTests {
 		t.Log(name)
 
@@ -31,13 +34,22 @@ func TestGetByIPCacher(t *testing.T) {
 		if err != nil {
 			t.Fatal(err, "failed to create hegel server")
 		}
-		ehw, err := hegelTestServer.HardwareClient().ByIP(context.Background(), mock.UserIP)
+
+		addr, err := net.ResolveTCPAddr("tcp", mock.UserIP+":80")
+		if err != nil {
+			t.Fatal(err, "failed to resolve tcp addr")
+		}
+		p := &peer.Peer{Addr: addr}
+		ctx := peer.NewContext(context.Background(), p)
+
+		ehw, err := hegelTestServer.Get(ctx, nil)
 		if err != nil {
 			t.Fatal("unexpected error while getting hardware by ip:", err)
 		}
-		//hw := exportedHardwareCacher{}
-		//err = json.Unmarshal(ehw, &hw)
-		hw, err := ehw.Export()
+		t.Log(ehw.JSON)
+
+		hw := hardware.ExportedHardwareCacher{}
+		err = json.Unmarshal([]byte(ehw.JSON), &hw)
 		if test.error != "" {
 			if err == nil {
 				t.Fatalf("unmarshal should have returned error: %v", test.error)
@@ -46,47 +58,45 @@ func TestGetByIPCacher(t *testing.T) {
 			}
 		}
 
-		t.Log(hw)
-
-		//if hw.State != test.state {
-		//	t.Fatalf("unexpected state, want: %v, got: %v\n", test.state, hw.State)
-		//}
-		//if hw.Facility != test.facility {
-		//	t.Fatalf("unexpected facility, want: %v, got: %v\n", test.facility, hw.Facility)
-		//}
-		//if len(hw.NetworkPorts) > 0 && hw.NetworkPorts[0]["data"].(map[string]interface{})["mac"] != test.mac {
-		//	t.Fatalf("unexpected mac, want: %v, got: %v\n", test.mac, hw.NetworkPorts[0]["data"].(map[string]interface{})["mac"])
-		//}
-		//if len(hw.Instance.Storage.Disks) > 0 {
-		//	if hw.Instance.Storage.Disks[0].Device != test.diskDevice {
-		//		t.Fatalf("unexpected storage disk device, want: %v, got: %v\n", test.diskDevice, hw.Instance.Storage.Disks[0].Device)
-		//	}
-		//	if hw.Instance.Storage.Disks[0].WipeTable != test.wipeTable {
-		//		t.Fatalf("unexpected storage disk wipe table, want: %v, got: %v\n", test.wipeTable, hw.Instance.Storage.Disks[0].WipeTable)
-		//	}
-		//	t.Log("want:", test.partitionSize, " got:", hw.Instance.Storage.Disks[0].Paritions[0].Size)
-		//	if fmt.Sprintf("%v", hw.Instance.Storage.Disks[0].Paritions[0].Size) != fmt.Sprintf("%v", test.partitionSize) {
-		//		t.Fatalf("unexpected storage disk partition size, want: %v, got: %v\n", test.partitionSize, hw.Instance.Storage.Disks[0].Paritions[0].Size)
-		//	}
-		//}
-		//if len(hw.Instance.Storage.Filesystems) > 0 {
-		//	if hw.Instance.Storage.Filesystems[0].Mount.Device != test.filesystemDevice {
-		//		t.Fatalf("unexpected storage filesystem mount device, want: %v, got: %v\n", test.filesystemDevice, hw.Instance.Storage.Filesystems[0].Mount.Device)
-		//	}
-		//	if hw.Instance.Storage.Filesystems[0].Mount.Format != test.filesystemFormat {
-		//		t.Fatalf("unexpected storage filesystem mount format, want: %v, got: %v\n", test.filesystemFormat, hw.Instance.Storage.Filesystems[0].Mount.Format)
-		//	}
-		//}
-		//if test.osSlug != "" && hw.Instance.OS.OsSlug != test.osSlug {
-		//	t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.osSlug, hw.Instance.OS.OsSlug)
-		//}
-		//if hw.PlanSlug != test.planSlug {
-		//	t.Fatalf("unexpected plan slug, want: %v, got: %v\n", test.planSlug, hw.PlanSlug)
-		//}
+		if hw.State != test.state {
+			t.Fatalf("unexpected state, want: %v, got: %v\n", test.state, hw.State)
+		}
+		if hw.Facility != test.facility {
+			t.Fatalf("unexpected facility, want: %v, got: %v\n", test.facility, hw.Facility)
+		}
+		if len(hw.NetworkPorts) > 0 && hw.NetworkPorts[0]["data"].(map[string]interface{})["mac"] != test.mac {
+			t.Fatalf("unexpected mac, want: %v, got: %v\n", test.mac, hw.NetworkPorts[0]["data"].(map[string]interface{})["mac"])
+		}
+		if len(hw.Instance.Storage.Disks) > 0 {
+			if hw.Instance.Storage.Disks[0].Device != test.diskDevice {
+				t.Fatalf("unexpected storage disk device, want: %v, got: %v\n", test.diskDevice, hw.Instance.Storage.Disks[0].Device)
+			}
+			if hw.Instance.Storage.Disks[0].WipeTable != test.wipeTable {
+				t.Fatalf("unexpected storage disk wipe table, want: %v, got: %v\n", test.wipeTable, hw.Instance.Storage.Disks[0].WipeTable)
+			}
+			t.Log("want:", test.partitionSize, " got:", hw.Instance.Storage.Disks[0].Paritions[0].Size)
+			if fmt.Sprintf("%v", hw.Instance.Storage.Disks[0].Paritions[0].Size) != fmt.Sprintf("%v", test.partitionSize) {
+				t.Fatalf("unexpected storage disk partition size, want: %v, got: %v\n", test.partitionSize, hw.Instance.Storage.Disks[0].Paritions[0].Size)
+			}
+		}
+		if len(hw.Instance.Storage.Filesystems) > 0 {
+			if hw.Instance.Storage.Filesystems[0].Mount.Device != test.filesystemDevice {
+				t.Fatalf("unexpected storage filesystem mount device, want: %v, got: %v\n", test.filesystemDevice, hw.Instance.Storage.Filesystems[0].Mount.Device)
+			}
+			if hw.Instance.Storage.Filesystems[0].Mount.Format != test.filesystemFormat {
+				t.Fatalf("unexpected storage filesystem mount format, want: %v, got: %v\n", test.filesystemFormat, hw.Instance.Storage.Filesystems[0].Mount.Format)
+			}
+		}
+		if test.osSlug != "" && hw.Instance.OS.OsSlug != test.osSlug {
+			t.Fatalf("unexpected os slug, want: %v, got: %v\n", test.osSlug, hw.Instance.OS.OsSlug)
+		}
+		if hw.PlanSlug != test.planSlug {
+			t.Fatalf("unexpected plan slug, want: %v, got: %v\n", test.planSlug, hw.PlanSlug)
+		}
 	}
 }
 
-func TestGetByIPTinkerbell(t *testing.T) {
+func TestGetTinkerbell(t *testing.T) {
 	dataModelVersion := os.Getenv("DATA_MODEL_VERSION")
 	defer os.Setenv("DATA_MODEL_VERSION", dataModelVersion)
 	os.Setenv("DATA_MODEL_VERSION", "1")
@@ -104,24 +114,25 @@ func TestGetByIPTinkerbell(t *testing.T) {
 		if err != nil {
 			t.Fatal(err, "failed to create hegel server")
 		}
-		ehw, err := hegelTestServer.HardwareClient().ByIP(context.Background(), mock.UserIP)
+
+		addr, err := net.ResolveTCPAddr("tcp", mock.UserIP+":80")
 		if err != nil {
-			t.Fatalf("ByIP returned unexpected error: %v", err)
+			t.Fatal(err, "failed to resolve tcp addr")
 		}
-		hwByte, err := ehw.Export()
-		if test.error != "" {
-			if err == nil {
-				t.Fatalf("Export should have returned error: %v", test.error)
-			} else if err.Error() != test.error {
-				t.Fatalf("Export returned wrong error: got %v want %v", err, test.error)
-			}
+		p := &peer.Peer{Addr: addr}
+		ctx := peer.NewContext(context.Background(), p)
+
+		ehw, err := hegelTestServer.Get(ctx, nil)
+		if err != nil {
+			t.Fatal("unexpected error while getting hardware by ip:", err)
 		}
+		t.Log(ehw.JSON)
 
 		hw := struct {
 			ID       string          `json:"id"`
 			Metadata packet.Metadata `json:"metadata"`
 		}{}
-		err = json.Unmarshal(hwByte, &hw)
+		err = json.Unmarshal([]byte(ehw.JSON), &hw)
 		if err != nil {
 			t.Error("error in unmarshalling hardware metadata", err)
 		}
