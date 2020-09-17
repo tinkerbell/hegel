@@ -69,7 +69,7 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 		HardwareClientAvailable bool    `json:"hardware_client_status"`
 	}{
 		GitRev:                  gitRev,
-		Uptime:                  time.Since(StartTime).Seconds(),
+		Uptime:                  time.Since(startTime).Seconds(),
 		Goroutines:              runtime.NumGoroutine(),
 		HardwareClientAvailable: isHardwareClientAvailableTemp,
 	}

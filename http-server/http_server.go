@@ -21,7 +21,7 @@ import (
 var (
 	isHardwareClientAvailableMu sync.RWMutex
 	isHardwareClientAvailable   bool
-	StartTime                   time.Time
+	startTime                   time.Time
 	metricsPort                 = flag.Int("http_port", env.Int("HEGEL_HTTP_PORT", 50061), "Port to listen on http")
 	customEndpoints             string
 	gitRev                      string
@@ -30,13 +30,18 @@ var (
 	hegelServer                 *grpcserver.Server
 )
 
-func Serve(ctx context.Context, l log.Logger, srv *grpcserver.Server, gRev string, time time.Time) error {
-	StartTime = time
+func Serve(ctx context.Context, l log.Logger, srv *grpcserver.Server, gRev string, t time.Time) error {
+	startTime = t
 	gitRev = gRev
 	logger = l
 	hegelServer = srv
 
-	go checkHardwareClientHealth()
+	go func() {
+		c := time.Tick(15 * time.Second)
+		for range c {
+			checkHardwareClientHealth()
+		}
+	}()
 
 	mux := &http.ServeMux{}
 	mux.Handle("/metrics", promhttp.Handler())
@@ -84,34 +89,31 @@ func registerCustomEndpoints(mux *http.ServeMux) error {
 }
 
 func checkHardwareClientHealth() {
-	c := time.Tick(15 * time.Second)
-	for range c {
-		// Get All hardware as a proxy for a healthcheck
-		// TODO (patrickdevivo) until Cacher gets a proper healthcheck RPC
-		// a la https://github.com/grpc/grpc/blob/master/doc/health-checking.md
-		// this will have to do.
-		// Note that we don't do anything with the stream (we don't read from it)
-		var isHardwareClientAvailableTemp bool
-		ctx, cancel := context.WithCancel(context.Background())
-		_, err := hegelServer.HardwareClient().All(ctx) // checks for tink health as well
-		if err == nil {
-			isHardwareClientAvailableTemp = true
-		}
-		cancel()
+	// Get All hardware as a proxy for a healthcheck
+	// TODO (patrickdevivo) until Cacher gets a proper healthcheck RPC
+	// a la https://github.com/grpc/grpc/blob/master/doc/health-checking.md
+	// this will have to do.
+	// Note that we don't do anything with the stream (we don't read from it)
+	var isHardwareClientAvailableTemp bool
+	ctx, cancel := context.WithCancel(context.Background())
+	_, err := hegelServer.HardwareClient().All(ctx) // checks for tink health as well
+	if err == nil {
+		isHardwareClientAvailableTemp = true
+	}
+	cancel()
 
-		isHardwareClientAvailableMu.Lock()
-		isHardwareClientAvailable = isHardwareClientAvailableTemp
-		isHardwareClientAvailableMu.Unlock()
+	isHardwareClientAvailableMu.Lock()
+	isHardwareClientAvailable = isHardwareClientAvailableTemp
+	isHardwareClientAvailableMu.Unlock()
 
-		if isHardwareClientAvailableTemp {
-			metrics.CacherConnected.Set(1)
-			metrics.CacherHealthcheck.WithLabelValues("true").Inc()
-			logger.With("status", isHardwareClientAvailableTemp).Debug("tick")
-		} else {
-			metrics.CacherConnected.Set(0)
-			metrics.CacherHealthcheck.WithLabelValues("false").Inc()
-			metrics.Errors.WithLabelValues("cacher", "healthcheck").Inc()
-			logger.With("status", isHardwareClientAvailableTemp).Error(err)
-		}
+	if isHardwareClientAvailableTemp {
+		metrics.CacherConnected.Set(1)
+		metrics.CacherHealthcheck.WithLabelValues("true").Inc()
+		logger.With("status", isHardwareClientAvailableTemp).Debug("tick")
+	} else {
+		metrics.CacherConnected.Set(0)
+		metrics.CacherHealthcheck.WithLabelValues("false").Inc()
+		metrics.Errors.WithLabelValues("cacher", "healthcheck").Inc()
+		logger.With("status", isHardwareClientAvailableTemp).Error(err)
 	}
 }
