@@ -19,15 +19,15 @@ import (
 )
 
 var (
-	isCacherAvailableMu sync.RWMutex
-	isCacherAvailable   bool
-	StartTime           time.Time
-	metricsPort         = flag.Int("http_port", env.Int("HEGEL_HTTP_PORT", 50061), "Port to liten on http")
-	customEndpoints     string
-	gitRev              string
-	gitRevJSON          []byte
-	logger              log.Logger
-	hegelServer         *grpcserver.Server
+	isHardwareClientAvailableMu sync.RWMutex
+	isHardwareClientAvailable   bool
+	StartTime                   time.Time
+	metricsPort                 = flag.Int("http_port", env.Int("HEGEL_HTTP_PORT", 50061), "Port to listen on http")
+	customEndpoints             string
+	gitRev                      string
+	gitRevJSON                  []byte
+	logger                      log.Logger
+	hegelServer                 *grpcserver.Server
 )
 
 func Serve(ctx context.Context, l log.Logger, srv *grpcserver.Server, gRev string, time time.Time) error {
@@ -36,7 +36,7 @@ func Serve(ctx context.Context, l log.Logger, srv *grpcserver.Server, gRev strin
 	logger = l
 	hegelServer = srv
 
-	go checkCacherHealth()
+	go checkHardwareClientHealth()
 
 	mux := &http.ServeMux{}
 	mux.Handle("/metrics", promhttp.Handler())
@@ -83,7 +83,7 @@ func registerCustomEndpoints(mux *http.ServeMux) error {
 	return nil
 }
 
-func checkCacherHealth() {
+func checkHardwareClientHealth() {
 	c := time.Tick(15 * time.Second)
 	for range c {
 		// Get All hardware as a proxy for a healthcheck
@@ -91,27 +91,27 @@ func checkCacherHealth() {
 		// a la https://github.com/grpc/grpc/blob/master/doc/health-checking.md
 		// this will have to do.
 		// Note that we don't do anything with the stream (we don't read from it)
-		var isCacherAvailableTemp bool
+		var isHardwareClientAvailableTemp bool
 		ctx, cancel := context.WithCancel(context.Background())
 		_, err := hegelServer.HardwareClient().All(ctx) // checks for tink health as well
 		if err == nil {
-			isCacherAvailableTemp = true
+			isHardwareClientAvailableTemp = true
 		}
 		cancel()
 
-		isCacherAvailableMu.Lock()
-		isCacherAvailable = isCacherAvailableTemp
-		isCacherAvailableMu.Unlock()
+		isHardwareClientAvailableMu.Lock()
+		isHardwareClientAvailable = isHardwareClientAvailableTemp
+		isHardwareClientAvailableMu.Unlock()
 
-		if isCacherAvailableTemp {
+		if isHardwareClientAvailableTemp {
 			metrics.CacherConnected.Set(1)
 			metrics.CacherHealthcheck.WithLabelValues("true").Inc()
-			logger.With("status", isCacherAvailableTemp).Debug("tick")
+			logger.With("status", isHardwareClientAvailableTemp).Debug("tick")
 		} else {
 			metrics.CacherConnected.Set(0)
 			metrics.CacherHealthcheck.WithLabelValues("false").Inc()
 			metrics.Errors.WithLabelValues("cacher", "healthcheck").Inc()
-			logger.With("status", isCacherAvailableTemp).Error(err)
+			logger.With("status", isHardwareClientAvailableTemp).Error(err)
 		}
 	}
 }
