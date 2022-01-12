@@ -653,6 +653,14 @@ var tinkerbellEC2Tests = map[string]struct {
 echo "Hello world!"`,
 		json: mock.TinkerbellKantEC2,
 	},
+	"vendor-data": {
+		url:    "/2009-04-04/vendor-data",
+		status: 200,
+		response: `#!/bin/bash
+
+echo "Hello vendor!"`,
+		json: mock.TinkerbellKantEC2,
+	},
 	"meta-data": {
 		url:    "/2009-04-04/meta-data",
 		status: 200,

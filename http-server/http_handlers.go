@@ -23,8 +23,9 @@ import (
 // for /meta-data, the `spot` metadata item will only show up when the instance is a spot instance (denoted by if the `spot` field inside hardware is nonnull)
 // NOTE: make sure when adding a new metadata item in a "subdirectory", to also add it to the directory-listing filter.
 var ec2Filters = map[string]string{
-	"":                                    `"meta-data", "user-data"`, // base path
+	"":                                    `"meta-data", "user-data", "vendor-data"`, // base path
 	"/user-data":                          ".metadata.userdata",
+	"/vendor-data":                        ".metadata.vendordata",
 	"/meta-data":                          `["instance-id", "hostname", "local-hostname", "iqn", "plan", "facility", "tags", "operating-system", "public-keys", "public-ipv4", "public-ipv6", "local-ipv4"] + (if .metadata.instance.spot != null then ["spot"] else [] end) | sort | .[]`,
 	"/meta-data/instance-id":              ".metadata.instance.id",
 	"/meta-data/hostname":                 ".metadata.instance.hostname",
