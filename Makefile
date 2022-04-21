@@ -1,16 +1,31 @@
 binary := cmd/hegel
+
 all: ${binary}
-.PHONY: ${binary} gen test
+
+.PHONY: ${binary}
 ${binary}: grpc/protos/hegel
-${binary}:
-	CGO_ENABLED=0 GOOS=$$GOOS go build -ldflags="-X main.GitRev=$(shell git rev-parse --short HEAD)" -o $@ ./$@
+	CGO_ENABLED=0 GOOS=$$GOOS go build -ldflags="-X main.GitRev=$(shell git rev-parse --short HEAD)" -o hegel ./$@
+
+.PHONY: image
+image:
+	docker build $(IMAGE_ARGS) -f ./cmd/hegel/Dockerfile .
+
+.PHONY: gen
 gen: grpc/protos/hegel/hegel.pb.go
+
 grpc/protos/hegel/hegel.pb.go: grpc/protos/hegel/hegel.proto
 	protoc --go_out=plugins=grpc:./ grpc/protos/hegel/hegel.proto
 	goimports -w $@
+
+.PHONY: unit-test
+unit-test:
+	go test $(GO_TEST_ARGS) -coverprofile=unit-test.coverage ./...
+
 ifeq ($(CI),drone)
 run: ${binary}
 	${binary}
+
+.PHONY test
 test:
 	go test -race -coverprofile=coverage.txt -covermode=atomic ${TEST_ARGS} ./...
 endif
