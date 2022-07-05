@@ -1,4 +1,4 @@
-# Hegel Instance Metadata Standard
+# Hegel Instance Metadata
 
 ## Motivation
 
