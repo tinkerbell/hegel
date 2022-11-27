@@ -69,5 +69,14 @@ docker run --rm -d --name=hegel \
 curl -H "X-Forwarded-For: 10.10.10.10" http://localhost:50061/2009-04-04/meta-data/hostname
 ```
 
+### What is the `/metadata` endpoint
+
+Historically, `/metadata` (which is different to the EC2 `/2009-04-04/meta-data` endpoint) has
+provided [Equinix Metal Metadata][equinix-metadata]. It exists in Hegel versions <= v9.x. In v10
+it was deprecated _and_ removed. 
+
+If you have a need for different metadata formats please raise an issue.
+
 [cloud-init]: https://cloudinit.readthedocs.io/en/latest/
 [ignition]: https://coreos.github.io/ignition/
+[equinix-metadata]: https://deploy.equinix.com/developers/docs/metal/server-metadata/metadata/
