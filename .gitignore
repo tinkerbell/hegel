@@ -1,6 +1,13 @@
-.env
-out/
-/hegel-*
-.vscode
+# Project specific VSCode configuration.
+/.vscode
+
+# Dependency tooling.
+/out
+
+# Go test coverage reporting.
 /coverage.out
-/bin
+
+# Distribution directory for artifact releases.
+/dist
+
+dist/

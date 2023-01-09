@@ -1,17 +1,38 @@
 # Configure the Make shell for recipe invocations.
 SHELL := bash
 
-# Specify the target architecture to build the binary for. (Recipes: build, image)
-GOARCH ?= $(shell go env GOARCH)
+# Build output configuration
+OUT_DIR 		?= $(shell pwd)/out
+BIN_DIR			?= $(OUT_DIR)/bin
+LINT_DIR 		?= $(OUT_DIR)/linters
+ENVTEST_BIN_DIR	?= $(OUT_DIR)/envtest
 
-# Specify the target OS to build the binary for. (Recipes: build)
-GOOS ?= $(shell go env GOOS)
+# Tools
+GORELEASER_VERSION 		?= v1.14
+GOLANGCI_LINT_VERSION 	?= v1.50.1
+HADOLINT_VERSION 		?= v2.12.0
+YAMLLINT_VERSION 		?= v1.28.0
+MOCKGEN_VERSION			?= v1.6
+# The kubernetes version to use with envtest.
+ENVTEST_KUBE_VERSION 	?= 1.25
 
-# Specify the GOPROXYs to use in the build of the binary. (Recipes: build)
-GOPROXY ?= $(shell go env GOPROXY)
+GO 				:= go
+GORELEASER 		:= $(GO) run github.com/goreleaser/goreleaser@$(GORELEASER_VERSION)
+GOLANGCI_LINT 	:= $(GO) run github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+HADOLINT 		:= $(LINT_DIR)/hadolint-$(HADOLINT_VERSION)
+MOCKGEN 		:= $(GO) run github.com/golang/mock/mockgen@$(MOCKGEN_VERSION)
+# We use `latest` because setup-envtest doesn't publish versions.
+SETUP_ENVTEST 	:= $(GO) run sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+# We install yamllint into a target directory to avoid installing something to the users system.
+# This makes it necessary to set the PYTHONPATH so yamllint can import its modules.
+YAMLLINT_INSTALL 	:= $(LINT_DIR)/yamllint-$(YAMLLINT_VERSION)
+YAMLLINT 			:= PYTHONPATH=$(YAMLLINT_INSTALL) $(YAMLLINT_INSTALL)/bin/yamllint
 
-# Specify additional `docker build` arguments. (Recipes: image)
-IMAGE_ARGS ?= -t hegel
+# GoReleaser environment configuration
+IMAGE_NAME 		?= quay.io/tinkerbell/hegel
+
+# Local build configures options when building locally.
+SNAPSHOT := $(if $(CI),,--snapshot)
 
 .PHONY: help
 help:
@@ -22,32 +43,26 @@ all: test image ## Run tests and build the Hegel a Linux Hegel image for the hos
 
 .PHONY: build
 build: ## Build the Hegel binary. Use GOOS and GOARCH to set the target OS and architecture.
-	CGO_ENABLED=0 \
-	GOOS=$$GOOS \
-	GOARCH=$$GOARCH \
-	GOPROXY=$$GOPROXY \
-	go build \
-		-o hegel-$(GOOS)-$(GOARCH) \
-		./cmd/hegel
+	$(GORELEASER) build --snapshot
+
+# When we build the image its Linux based. This means we need a Linux binary hence we need to export
+# GOOS so we have compatible binary.
+.PHONY: image
+image:
+	IMAGE_NAME=$(IMAGE_NAME) \
+	$(GORELEASER) release --rm-dist $(SNAPSHOT)
 
 .PHONY: test
 test: ## Run unit tests.
-	go test $(GO_TEST_ARGS) -coverprofile=coverage.out ./...
+	$(GO) test $(GO_TEST_ARGS) -coverprofile=coverage.out ./...
 
 .PHONY: test-e2e
 test-e2e: ## Run E2E tests.
-	go test $(GO_TEST_ARGS) -tags=e2e -coverprofile=coverage.out ./internal/e2e
-
-# Version should match with whatever we consume in sources (check the go.mod).
-SETUP_ENVTEST 			:= go run sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-ENVTEST_BIN_DIR 		:= $(shell pwd)/bin
-
-# The kubernetes version to use with envtest. Overridable when invoking make.
-# E.g. make ENVTEST_KUBE_VERSION=1.24 test-integration
-ENVTEST_KUBE_VERSION 	?= 1.25
+	$(GO) test $(GO_TEST_ARGS) -tags=e2e -coverprofile=coverage.out ./internal/e2e
 
 .PHONY: setup-envtest
-setup-envtest:
+setup-envtest: $(shell mkdir -p $(ENVTEST_BIN_DIR))
+setup-envtest: ## Configure envtest environment for integration testing.
 	@echo Installing Kubernetes $(ENVTEST_KUBE_VERSION) binaries into $(ENVTEST_BIN_DIR); \
 	$(SETUP_ENVTEST) use --bin-dir $(ENVTEST_BIN_DIR) $(ENVTEST_KUBE_VERSION)
 
@@ -60,17 +75,7 @@ test-integration: setup-envtest
 test-integration: TEST_DIRS := $(shell grep -R --include="*.go" -l -E "//go:build.*\sintegration" . | xargs dirname | uniq)
 test-integration: ## Run integration tests.
 	source <($(SETUP_ENVTEST) use -p env --bin-dir $(ENVTEST_BIN_DIR) $(ENVTEST_KUBE_VERSION)); \
-	go test $(GO_TEST_ARGS) -tags=integration -coverprofile=coverage.out $(TEST_DIRS)
-
-# When we build the image its Linux based. This means we need a Linux binary hence we need to export
-# GOOS so we have compatible binary.
-.PHONY: image
-image: export GOOS=linux
-image: build ## Build a Linux based Hegel image for the the host architecture.
-	DOCKER_BUILDKIT=1 docker build $(IMAGE_ARGS) .
-
-# The command to run mockgen.
-MOCKGEN = go run github.com/golang/mock/mockgen@v1.6
+	$(GO) test $(GO_TEST_ARGS) -tags=integration -coverprofile=coverage.out $(TEST_DIRS)
 
 mocks: ## Generate mocks for testing.
 	$(MOCKGEN) \
@@ -86,29 +91,13 @@ mocks: ## Generate mocks for testing.
 		-package healthcheck \
 		-source internal/healthcheck/health_check.go
 
-OUT_DIR 	?= $(shell pwd)/out
-BIN_DIR		?= $(OUT_DIR)/bin
-LINT_DIR 	?= $(OUT_DIR)/linters
-
-GOLANGCI_LINT_VERSION 	?= v1.50.1
-GOLANGCI_LINT 			:= go run github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
-
-HADOLINT_VERSION 	?= v2.12.0
 HADOLINT_TARGET 	:= install/hadolint-$(HADOLINT_VERSION)
-HADOLINT 			:= $(LINT_DIR)/hadolint-$(HADOLINT_VERSION)
-
-YAMLLINT_VERSION 	?= v1.28.0
 YAMLLINT_TARGET 	:= install/yamllint-$(YAMLLINT_VERSION)
-YAMLLINT_INSTALL 	:= $(LINT_DIR)/yamllint-$(YAMLLINT_VERSION)
-# We install yamllint into a target directory to avoid installing something to the users system.
-# This makes it necessary to set the PYTHONPATH so yamllint can import its modules.
-YAMLLINT 			:= PYTHONPATH=$(YAMLLINT_INSTALL) $(YAMLLINT_INSTALL)/bin/yamllint
 
 LINT_OS 	:= $(shell uname)
 LINT_ARCH 	:= $(shell uname -m)
 
 .PHONY: lint
-lint: SHELL := bash
 lint: $(shell mkdir -p $(LINT_DIR))
 lint: $(HADOLINT_TARGET) $(YAMLLINT_TARGET) ## Run linters.
 	$(GOLANGCI_LINT) run

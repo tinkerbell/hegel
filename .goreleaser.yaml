@@ -1,0 +1,69 @@
+project_name: hegel
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - main: ./cmd/hegel
+    binary: hegel
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - format: binary
+
+dockers:
+  - use: buildx
+    goos: linux
+    goarch: amd64
+    image_templates:
+      - "{{ .Env.IMAGE_NAME }}:{{ .ShortCommit }}-amd64"
+      - '{{ if not .IsSnapshot }}{{ .Env.IMAGE_NAME }}:v{{ .RawVersion }}{{ if not eq .Prerelease "" }}-{{ .Prerelease}}{{ end }}-amd64{{ end }}'
+      # - '{{ if not .IsSnapshot }}{{ .Env.IMAGE_NAME }}:v{{ .Major }}.{{ .Minor }}{{ if not eq .Prerelease "" }}-{{ .Prerelease}}{{ end }}-amd64{{ end }}'
+      # - '{{ if not .IsSnapshot }}{{ .Env.IMAGE_NAME }}:v{{ .Major }}{{ if not eq .Prerelease "" }}-{{ .Prerelease}}{{ end }}-amd64{{ end }}'
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
+
+  - use: buildx
+    goos: linux
+    goarch: arm64
+    image_templates:
+      - "{{ .Env.IMAGE_NAME }}:{{ .ShortCommit }}-arm64"
+      - '{{ if not .IsSnapshot }}{{ .Env.IMAGE_NAME }}:v{{ .RawVersion }}{{ if not eq .Prerelease "" }}-{{ .Prerelease}}{{ end }}-arm64{{ end }}'
+      # - '{{ if not .IsSnapshot }}{{ .Env.IMAGE_NAME }}:v{{ .Major }}.{{ .Minor }}{{ if not eq .Prerelease "" }}-{{ .Prerelease}}{{ end }}-arm64{{ end }}'
+      # - '{{ if not .IsSnapshot }}{{ .Env.IMAGE_NAME }}:v{{ .Major }}{{ if not eq .Prerelease "" }}-{{ .Prerelease}}{{ end }}-arm64{{ end }}'
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
+
+docker_manifests:
+  - name_template: "{{ .Env.IMAGE_NAME }}:{{ .ShortCommit }}"
+    image_templates:
+      - "{{ .Env.IMAGE_NAME }}:{{ .ShortCommit }}-amd64"
+      - "{{ .Env.IMAGE_NAME }}:{{ .ShortCommit }}-arm64"
+
+  - name_template: '{{ if not .IsSnapshot }}{{ .Env.IMAGE_NAME }}:v{{ .RawVersion }}{{ if not eq .Prerelease "" }}-{{ .Prerelease}}{{ end }}{{ end }}'
+    image_templates:
+      - '{{ if not .IsSnapshot }}{{ .Env.IMAGE_NAME }}:v{{ .RawVersion }}{{ if not eq .Prerelease "" }}-{{ .Prerelease}}{{ end }}-amd64{{ end }}'
+      - '{{ if not .IsSnapshot }}{{ .Env.IMAGE_NAME }}:v{{ .RawVersion }}{{ if not eq .Prerelease "" }}-{{ .Prerelease}}{{ end }}-arm64{{ end }}'
+
+snapshot:
+  name_template: "snapshot-{{ .ShortCommit }}"
