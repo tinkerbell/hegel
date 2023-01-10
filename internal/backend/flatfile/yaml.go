@@ -30,6 +30,8 @@ func FromYAMLFile(path string) (*Backend, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	
+	defer fh.Close()
+	
 	return FromYAML(fh)
 }
