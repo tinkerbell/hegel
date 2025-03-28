@@ -2,7 +2,7 @@ module github.com/tinkerbell/hegel
 
 go 1.22.0
 
-toolchain go1.22.2
+toolchain go1.24.1
 
 require (
 	github.com/equinix-labs/otel-init-go v0.0.9
@@ -14,7 +14,7 @@ require (
 	github.com/packethost/xff v0.0.0-20190305172552-d3e9190c41b3
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.5
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.19.0
